@@ -1,0 +1,8 @@
+{
+  "sampler": 3,
+  "prompt": 6,
+  "image_size": 5,
+  "negative_prompt": 7,
+  "checkpoint": 4,
+  "output": 9
+  }

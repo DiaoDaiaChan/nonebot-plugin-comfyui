@@ -1,0 +1,254 @@
+{
+  "1": {
+    "inputs": {
+      "context_expand_pixels": 100,
+      "context_expand_factor": 1,
+      "fill_mask_holes": true,
+      "blur_mask_pixels": 16,
+      "invert_mask": false,
+      "blend_pixels": 16,
+      "rescale_algorithm": "bicubic",
+      "mode": "ranged size",
+      "force_width": 1024,
+      "force_height": 1024,
+      "rescale_factor": 1,
+      "min_width": 512,
+      "min_height": 512,
+      "max_width": 768,
+      "max_height": 768,
+      "padding": 32,
+      "image": [
+        "47",
+        0
+      ],
+      "mask": [
+        "50",
+        0
+      ]
+    },
+    "class_type": "InpaintCrop",
+    "_meta": {
+      "title": "✂️ Inpaint Crop"
+    }
+  },
+  "2": {
+    "inputs": {
+      "rescale_algorithm": "bislerp",
+      "stitch": [
+        "1",
+        0
+      ],
+      "inpainted_image": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "InpaintStitch",
+    "_meta": {
+      "title": "✂️ Inpaint Stitch"
+    }
+  },
+  "3": {
+    "inputs": {
+      "image": "a87ed50d8e69b8bfb62df848bac69d12.png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "15": {
+    "inputs": {
+      "samples": [
+        "100",
+        0
+      ],
+      "vae": [
+        "99",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "19": {
+    "inputs": {
+      "positive": [
+        "32",
+        0
+      ],
+      "negative": [
+        "32",
+        0
+      ],
+      "vae": [
+        "99",
+        2
+      ],
+      "pixels": [
+        "1",
+        1
+      ],
+      "mask": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "InpaintModelConditioning",
+    "_meta": {
+      "title": "InpaintModelConditioning"
+    }
+  },
+  "25": {
+    "inputs": {
+      "rescale_algorithm": "bicubic",
+      "mode": "ensure minimum size",
+      "min_width": 0,
+      "min_height": 1536,
+      "rescale_factor": 1,
+      "image": [
+        "26",
+        0
+      ],
+      "mask": [
+        "26",
+        1
+      ]
+    },
+    "class_type": "InpaintResize",
+    "_meta": {
+      "title": "✂️ Resize Image Before Inpainting"
+    }
+  },
+  "26": {
+    "inputs": {
+      "sam_model": "sam_vit_h (2.56GB)",
+      "grounding_dino_model": "GroundingDINO_SwinB (938MB)",
+      "threshold": 0.3,
+      "detail_method": "VITMatte",
+      "detail_erode": 6,
+      "detail_dilate": 6,
+      "black_point": 0.15,
+      "white_point": 0.99,
+      "process_detail": false,
+      "prompt": "hand",
+      "device": "cuda",
+      "max_megapixels": 2,
+      "cache_model": false,
+      "image": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "LayerMask: SegmentAnythingUltra V2",
+    "_meta": {
+      "title": "LayerMask: SegmentAnythingUltra V2"
+    }
+  },
+  "32": {
+    "inputs": {
+      "text": "Masterpiece, High Definition, Real Person Portrait, 5 Fingers, Girl's Hand",
+      "clip": [
+        "99",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "47": {
+    "inputs": {
+      "fill_background": false,
+      "background_color": "#000000",
+      "RGBA_image": [
+        "25",
+        0
+      ],
+      "mask": [
+        "25",
+        1
+      ]
+    },
+    "class_type": "LayerUtility: ImageRemoveAlpha",
+    "_meta": {
+      "title": "LayerUtility: ImageRemoveAlpha"
+    }
+  },
+  "50": {
+    "inputs": {
+      "expand": 30,
+      "incremental_expandrate": 0.1,
+      "tapered_corners": false,
+      "flip_input": false,
+      "blur_radius": 10,
+      "lerp_alpha": 1,
+      "decay_factor": 1,
+      "fill_holes": false,
+      "mask": [
+        "25",
+        1
+      ]
+    },
+    "class_type": "GrowMaskWithBlur",
+    "_meta": {
+      "title": "Grow Mask With Blur"
+    }
+  },
+  "94": {
+    "inputs": {
+      "filename_prefix": "hand_fix",
+      "images": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "99": {
+    "inputs": {
+      "ckpt_name": "models\\flux1-dev-bnb-nf4-v2.safetensors"
+    },
+    "class_type": "CheckpointLoaderNF4",
+    "_meta": {
+      "title": "CheckpointLoaderNF4"
+    }
+  },
+  "100": {
+    "inputs": {
+      "seed": 266696528873091,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.5,
+      "model": [
+        "99",
+        0
+      ],
+      "positive": [
+        "19",
+        0
+      ],
+      "negative": [
+        "19",
+        1
+      ],
+      "latent_image": [
+        "19",
+        2
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  }
+}

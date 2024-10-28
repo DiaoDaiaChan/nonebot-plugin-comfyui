@@ -1,7 +1,6 @@
-from nonebot import logger
-from nonebot.plugin import PluginMetadata, inherit_supported_adapters, require
+from nonebot.plugin import PluginMetadata, inherit_supported_adapters
 from nonebot.rule import ArgumentParser
-from nonebot.plugin.on import on_shell_command
+from nonebot.plugin.on import on_shell_command, on_command
 
 from .config import Config
 
@@ -29,11 +28,12 @@ comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模�
 __plugin_meta__ = PluginMetadata(
     name="Comfyui绘图插件",
     description="专门适配Comfyui的绘图插件",
-    usage="/prompt",
+    usage="基础生图命令: prompt, 发送comfyui帮助来获取支持的参数",
     config=Config,
     type="application",
     supported_adapters=inherit_supported_adapters("nonebot_plugin_alconna"),
     extra={"author": "DiaoDaiaChan", "email": "437012661@qq.com"},
+    homepage="https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui"
 )
 
 comfyui = on_shell_command(
@@ -43,3 +43,34 @@ comfyui = on_shell_command(
     block=True,
     handlers=[comfyui_handler]
 )
+
+help_ = on_command("comfyui帮助", priority=5, block=True)
+help_text = '''
+comfyui绘图插件
+
+发送 prompt [正面提示词] 来进行一次最简单的生图
+-----其他参数-----
+-u 负面提示词
+--ar 画幅比例
+-s 种子
+--steps 采样步数
+--cfg CFG scale
+-n 去噪强度
+-height 高度
+-width 宽度
+-v 视频输出
+-wf 工作流
+-sp 采样器
+-sch 调度器
+-b 每批数量
+-m 模型
+-----结束-----
+
+例如:
+prompt a girl, a beautiful girl, masterpiece -u badhand -ar 1:1 -s 123456 -steps 20 -cfg 7.5 -n 1 -height 512 -width 512 -sp "DPM++ 2M Karras"
+'''
+
+
+@help_.handle()
+async def _():
+    await help_.finish(help_text)

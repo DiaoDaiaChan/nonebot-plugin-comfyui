@@ -57,10 +57,11 @@ async def comfyui_handler(event: Event, args: Namespace = ShellCommandArgs()):
         comfyui_instance.add_image(image_byte)
 
     await comfyui_instance.posting()
+
     unimsg = UniMessage.text('生成完毕')
     for i in comfyui_instance.image_byte:
         unimsg += UniMessage.image(raw=i)
 
-    await unimsg.send()
+    await unimsg.send(reply_to=True)
 
 

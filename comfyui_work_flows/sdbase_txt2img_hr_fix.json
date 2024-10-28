@@ -1,0 +1,266 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 213416933995644,
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "4": {
+    "inputs": {
+      "ckpt_name": "models\\1053-S.ckpt"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "5": {
+    "inputs": {
+      "width": 768,
+      "height": 512,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "beautiful scenery nature glass bottle landscape, , purple galaxy bottle,",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "text, watermark",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "10": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "width": 1536,
+      "height": 1152,
+      "crop": "disabled",
+      "samples": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "LatentUpscale",
+    "_meta": {
+      "title": "Upscale Latent"
+    }
+  },
+  "12": {
+    "inputs": {
+      "model_name": "RealESRGAN_x4plus.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "14": {
+    "inputs": {
+      "upscale_model": [
+        "12",
+        0
+      ],
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "Upscale Image (using Model)"
+    }
+  },
+  "15": {
+    "inputs": {
+      "upscale_method": "area",
+      "width": 1152,
+      "height": 768,
+      "crop": "disabled",
+      "image": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Upscale Image"
+    }
+  },
+  "16": {
+    "inputs": {
+      "pixels": [
+        "15",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "18": {
+    "inputs": {
+      "samples": [
+        "19",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "19": {
+    "inputs": {
+      "seed": 1069147258069384,
+      "steps": 8,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "sgm_uniform",
+      "denoise": 0.6,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "21",
+        0
+      ],
+      "negative": [
+        "22",
+        0
+      ],
+      "latent_image": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "20": {
+    "inputs": {
+      "seed": 85387134314530,
+      "steps": 20,
+      "cfg": 5.74,
+      "sampler_name": "dpm_2",
+      "scheduler": "normal",
+      "denoise": 1
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "21": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "22": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  }
+}

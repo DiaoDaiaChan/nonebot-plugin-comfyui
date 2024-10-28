@@ -109,18 +109,16 @@ class ComfyuiUI:
         max_resolution = config.comfyui_base_res
         aspect_ratio = width_ratio / height_ratio
         if aspect_ratio >= 1:
-            width = int(min(max_resolution, max_resolution ** 0.5))
+            width = int(min(max_resolution, max_resolution))
             height = int(width / aspect_ratio)
         else:
-            height = int(min(max_resolution, max_resolution ** 0.5))
+            height = int(min(max_resolution, max_resolution))
             width = int(height * aspect_ratio)
 
         return width, height
 
     def update_api_json(self, init_images):
         api_json = copy.deepcopy(self.api_json)
-
-        print(api_json)
 
         update_mapping = {
             "sampler": {
@@ -196,7 +194,7 @@ class ComfyuiUI:
                         if update_dict and item in update_mapping:
                             api_json[id_]['inputs'].update(update_mapping[item])
 
-        print(api_json)
+        self.compare_dicts(api_json, self.api_json)
         self.api_json = api_json
 
     async def heart_beat(self, id_):
@@ -337,9 +335,6 @@ class ComfyuiUI:
             self.init_images.append(base64.b64encode(i), "utf-8")
 
     async def download_img(self):
-        """
-        使用aiohttp下载图片并保存到指定路径。
-        """
 
         for url in self.image_url:
             response = await self.http_request(
@@ -348,7 +343,7 @@ class ComfyuiUI:
                 format=False
             )
 
-            logger.info(f"图片:{url}下载成功")
+            logger.info(f"图片: {url}下载成功")
 
             self.image_byte.append(response)
 
@@ -356,3 +351,11 @@ class ComfyuiUI:
     def list_to_str(tags_list):
         tags: str = ("".join([i+" " for i in tags_list if isinstance(i,str)])).split(",")
         return ','.join(tags)
+
+    @staticmethod
+    def compare_dicts(dict1, dict2):
+
+        modified_keys = {k for k in dict1.keys() & dict2.keys() if dict1[k] != dict2[k]}
+        for key in modified_keys:
+            logger.info(f"API请求值映射: {key} -> {dict1[key]} -> {dict2[key]}")
+

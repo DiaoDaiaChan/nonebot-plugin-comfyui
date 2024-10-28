@@ -1,0 +1,94 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "models\\flux1-dev-bnb-nf4-v2.safetensors"
+    },
+    "class_type": "CheckpointLoaderNF4",
+    "_meta": {
+      "title": "CheckpointLoaderNF4"
+    }
+  },
+  "2": {
+    "inputs": {
+      "text": "a tank",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "3": {
+    "inputs": {
+      "seed": 861133332082627,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "2",
+        0
+      ],
+      "negative": [
+        "2",
+        0
+      ],
+      "latent_image": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "4": {
+    "inputs": {
+      "width": 512,
+      "height": 768,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "5": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "6": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

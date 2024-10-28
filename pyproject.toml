@@ -9,8 +9,8 @@ dependencies = [
     "aiohttp",
     "tqdm",
     "aiofiles",
-    "nonebot_plugin_alconna"
-
+    "nonebot_plugin_alconna",
+    "pydantic"
 ]
 requires-python = ">=3.10"
 readme = "README.md"

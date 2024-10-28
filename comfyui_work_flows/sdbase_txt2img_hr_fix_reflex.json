@@ -1,0 +1,13 @@
+{
+"sampler": 3,
+"prompt": 6,
+"image_size": 5,
+"negative_prompt": 7,
+"checkpoint": 4,
+"output": 9,
+"latentupscale": 10,
+"resize": 15,
+"hr_steps": 19,
+"hr_prompt": 21,
+"hr_negative_prompt": 22
+}
