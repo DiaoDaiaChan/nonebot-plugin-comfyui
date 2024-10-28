@@ -98,8 +98,18 @@ class ComfyuiUI:
         self.cfg_scale: float = cfg_scale or 7.0
         self.denoise_strength: float = denoise_strength or 1.0
         self.video: bool = video or False
-        self.sampler: str = self.reflex_dict['sampler'].get(sampler, "dpmpp_2m") or "dpmpp_2m"
-        self.scheduler: str = self.reflex_dict['scheduler'].get(scheduler, "normal") or "normal"
+
+        self.sampler: str = (
+            self.reflex_dict['sampler'].get(sampler, "dpmpp_2m") if
+            sampler not in self.reflex_dict['sampler'].values() else
+            sampler or "dpmpp_2m"
+        )
+        self.scheduler: str = (
+            self.reflex_dict['scheduler'].get(scheduler, "normal") if
+            scheduler not in self.reflex_dict['scheduler'].values() else
+            scheduler or "normal"
+        )
+
         self.batch_size: int = batch_size or 1
         self.model: str = model or config.comfyui_model
 
@@ -298,7 +308,7 @@ class ComfyuiUI:
 
         if self.init_images:
             for image in self.init_images:
-                resp = await self.upload_base64_image(image, uuid.uuid4().hex)
+                resp = await self.upload_image(image, uuid.uuid4().hex)
                 upload_img_resp_list.append(resp)
 
         self.update_api_json(upload_img_resp_list)
@@ -350,28 +360,16 @@ class ComfyuiUI:
                 else:
                     return await response.read()
 
-    async def upload_base64_image(self, b64_image, name, image_type="input", overwrite=False):
-
-        if b64_image.startswith("data:image"):
-            header, b64_image = b64_image.split(",", 1)
-            file_type = header.split(";")[0].split(":")[1].split("/")[1]
-        else:
-            raise ValueError("Invalid base64 image format.")
-
-        image_data = base64.b64decode(b64_image)
+    async def upload_image(self, image_data: bytes, name, image_type="input", overwrite=False):
 
         data = aiohttp.FormData()
-        data.add_field('image', image_data, filename=f"{name}.{file_type}", content_type=f'image/{file_type}')
+        data.add_field('image', image_data, filename=f"{name}.png", content_type=f'image/png')
         data.add_field('type', image_type)
         data.add_field('overwrite', str(overwrite).lower())
 
         async with aiohttp.ClientSession() as session:
             async with session.post(f"{self.backend_url}/upload/image", data=data) as response:
                 return json.loads(await response.read())
-
-    def add_image(self, image_byte: list[bytes]):
-        for i in image_byte:
-            self.init_images.append(base64.b64encode(i), "utf-8")
 
     async def download_img(self):
 

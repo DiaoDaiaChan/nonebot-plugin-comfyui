@@ -54,7 +54,7 @@ async def comfyui_handler(event: Event, args: Namespace = ShellCommandArgs()):
                 async with session.get(url) as resp:
                     image_byte.append(await resp.read())
 
-        comfyui_instance.add_image(image_byte)
+        comfyui_instance.init_images = image_byte
 
     await comfyui_instance.posting()
 
