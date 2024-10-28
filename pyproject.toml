@@ -1,0 +1,25 @@
+[project]
+name = "nonebot-plugin-comfyui"
+version = "0.1.0"
+description = "适用于NoneBot2的Comfyui绘图插件"
+authors = [
+    {name = "DiaoDaiaChan", email = "diaodaiachan@qq.com"},
+]
+dependencies = [
+    "aiohttp",
+    "tqdm",
+    "aiofiles",
+    "nonebot_plugin_alconna"
+
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+distribution = true

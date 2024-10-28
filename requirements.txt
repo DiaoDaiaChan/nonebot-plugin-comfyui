@@ -1,0 +1,4 @@
+aiohttp
+tqdm
+aiofiles
+nonebot_plugin_alconna

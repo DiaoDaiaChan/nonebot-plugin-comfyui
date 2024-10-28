@@ -1,0 +1,6 @@
+.idea
+comfyui-test-bot
+
+__pycache__/
+./nonebot_plugin_comfyui/__pycache__/
+.pdm-python
