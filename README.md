@@ -2,7 +2,7 @@
 
 # nonebot-plugin-comfyui
 
-_⭐基于NoneBot2调用Comfyui(https://github.com/comfyanonymous/ComfyUI)进行绘图的插件⭐_
+_⭐基于NoneBot2调用Comfyui(https://github.com/comfyanonymous/ComfyUI)进行绘图的插件⭐_  
 _⭐AI文生图,图生图...插件(comfyui能做到的它都可以)⭐_  
 _⭐本插件适配单后端, 对于多后端请转到https://github.com/DiaoDaiaChan/nonebot-plugin-stable-diffusion-diao⭐_
 
@@ -15,6 +15,7 @@ _⭐本插件适配单后端, 对于多后端请转到https://github.com/DiaoDai
 ## ⭐ 介绍
 
 **支持调用comfyui工作流进行绘画的插件, 支持选择工作流, 调整分辨率等等**
+## 群 687904502 / 116994235
 
 ## 📜 免责声明
 
@@ -24,9 +25,6 @@ _⭐本插件适配单后端, 对于多后端请转到https://github.com/DiaoDai
 
 
 ## 💿 安装
-
-<details>
-<summary>安装</summary>
 
 `pip` 安装
 
@@ -59,6 +57,16 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 | comfyui_default_workflows | str |  否  |        "txt2img"        | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
 |  comfyui_max_res  | int |  否  |          2048           |                                 最大分辨率 ^ 2                                  |
 | comfyui_base_res | int |  否  |          1024           |                                 基础分辨率 ^ 2                                  |
+
+
+```env
+comfyui_url = "http://127.0.0.1:8188"
+comfyui_model = ""
+comfyui_workflows_dir = ""
+comfyui_default_workflows = "txt2img"
+comfyui_max_res = 2048
+comfyui_base_res = 1024
+```
 
 ## 关键!
 **comfyui_url**和**comfyui_workflows_dir**是必须的, 否则插件无法正常工作

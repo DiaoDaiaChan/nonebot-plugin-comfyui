@@ -13,7 +13,5 @@ class Config(BaseModel):
 
 
 config = get_plugin_config(Config)
-config.comfyui_max_res = config.comfyui_max_res ^ 2
-config.comfyui_base_res = config.comfyui_base_res ^ 2
 
 logger.info(f"Comfyui插件加载完成, 配置: {config}")

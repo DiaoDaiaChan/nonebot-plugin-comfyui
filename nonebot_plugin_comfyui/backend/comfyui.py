@@ -41,6 +41,45 @@ class ComfyuiUI:
             **kwargs
     ):
 
+        # 映射参数相关
+        self.reflex_dict = {'sampler': {
+            "DPM++ 2M": "dpmpp_2m",
+            "DPM++ SDE": "dpmpp_sde",
+            "DPM++ 2M SDE": "dpmpp_2m_sde",
+            "DPM++ 2M SDE Heun": "dpmpp_2m_sde",
+            "DPM++ 2S a": "dpmpp_2s_ancestral",
+            "DPM++ 3M SDE": "dpmpp_3m_sde",
+            "Euler a": "euler_ancestral",
+            "Euler": "euler",
+            "LMS": "lms",
+            "Heun": "heun",
+            "DPM2": "dpm_2",
+            "DPM2 a": "dpm_2_ancestral",
+            "DPM fast": "dpm_fast",
+            "DPM adaptive": "dpm_adaptive",
+            "Restart": "restart",
+            "HeunPP2": "heunpp2",
+            "IPNDM": "ipndm",
+            "IPNDM_V": "ipndm_v",
+            "DEIS": "deis",
+            "DDIM": "ddim",
+            "DDIM CFG++": "ddim",
+            "PLMS": "plms",
+            "UniPC": "uni_pc",
+            "LCM": "lcm",
+            "DDPM": "ddpm",
+        }, 'scheduler': {
+            "Automatic": "normal",
+            "Karras": "karras",
+            "Exponential": "exponential",
+            "SGM Uniform": "sgm_uniform",
+            "Simple": "simple",
+            "Normal": "normal",
+            "DDIM": "ddim_uniform",
+            "Beta": "beta"
+        }
+        }
+
         # 必要参数
         self.nb_event = nb_event
         self.args = args
@@ -59,8 +98,8 @@ class ComfyuiUI:
         self.cfg_scale: float = cfg_scale or 7.0
         self.denoise_strength: float = denoise_strength or 1.0
         self.video: bool = video or False
-        self.sampler: str = sampler or "dpmpp_2m"
-        self.scheduler: str = scheduler or "normal"
+        self.sampler: str = self.reflex_dict['sampler'].get(sampler, "dpmpp_2m") or "dpmpp_2m"
+        self.scheduler: str = self.reflex_dict['scheduler'].get(scheduler, "normal") or "normal"
         self.batch_size: int = batch_size or 1
         self.model: str = model or config.comfyui_model
 
@@ -80,7 +119,7 @@ class ComfyuiUI:
         self.init_images: list[str] = []
         self.image_url: list = []
         self.image_byte: list[bytes] = []
-        
+
     async def get_workflows_json(self):
         async with aiofiles.open(
                 f"{config.comfyui_workflows_dir}/{self.work_flows}.json",

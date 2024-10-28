@@ -1,6 +1,6 @@
 [project]
 name = "nonebot-plugin-comfyui"
-version = "0.1.0"
+version = "0.1.2"
 description = "适用于NoneBot2的Comfyui绘图插件"
 authors = [
     {name = "DiaoDaiaChan", email = "diaodaiachan@qq.com"},
