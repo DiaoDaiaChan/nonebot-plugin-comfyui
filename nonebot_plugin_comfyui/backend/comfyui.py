@@ -3,6 +3,7 @@ import json
 import random
 import uuid
 import base64
+import re
 
 import aiofiles
 import aiohttp
@@ -126,7 +127,7 @@ class ComfyuiUI:
         self.task_id = None
 
         # 图片相关
-        self.init_images: list[str] = []
+        self.init_images: list[bytes] = []
         self.image_url: list = []
         self.image_byte: list[bytes] = []
 
@@ -217,23 +218,43 @@ class ComfyuiUI:
                     for node, override_dict in node_id.items():
                         single_node_or = override_dict.get("override", {})
 
-                        for key, override_action in single_node_or.items():
+                        if single_node_or:
+                            for key, override_action in single_node_or.items():
 
-                            if override_action == "randint":
-                                temp_dict[item][key] = random.randint(0, 99999)
+                                if override_action == "randint":
+                                    temp_dict[item][key] = random.randint(0, 99999)
 
-                            elif override_action == "keep":
-                                continue
+                                elif override_action == "keep":
+                                    continue
 
-                            elif override_action == "append_prompt":
-                                prompt = api_json[node]['inputs'][key]
-                                prompt = self.prompt + prompt
-                                api_json[node]['inputs'][key] = prompt
+                                elif override_action == "append_prompt":
+                                    prompt = api_json[node]['inputs'][key]
+                                    prompt = self.prompt + prompt
+                                    api_json[node]['inputs'][key] = prompt
 
-                            elif override_action == "append_negative_prompt":
-                                prompt = api_json[node]['inputs'][key]
-                                prompt = self.negative_prompt + prompt
-                                api_json[node]['inputs'][key] = prompt
+                                elif override_action == "append_negative_prompt":
+                                    prompt = api_json[node]['inputs'][key]
+                                    prompt = self.negative_prompt + prompt
+                                    api_json[node]['inputs'][key] = prompt
+
+                                elif "upscale" in override_action:
+                                    logger.info("分辨率放大")
+                                    scale = 1.5
+                                    if "_" in override_action:
+                                        scale = override_action.split("_")[1]
+
+                                    if key == 'width':
+                                        res = self.width
+                                    elif key == 'height':
+                                        res = self.height
+
+                                    upscale_size = int(res * scale)
+                                    api_json[node]['inputs'][key] = upscale_size
+
+                        else:
+                            update_dict = api_json.get(node, None)
+                            if update_dict and item in update_mapping:
+                                api_json[node]['inputs'].update(update_mapping[item])
 
                 else:
                     node_id = [str(node_id)] if isinstance(node_id, int) else node_id
@@ -362,6 +383,8 @@ class ComfyuiUI:
 
     async def upload_image(self, image_data: bytes, name, image_type="input", overwrite=False):
 
+        logger.info(f"图片: {name}上传成功")
+
         data = aiohttp.FormData()
         data.add_field('image', image_data, filename=f"{name}.png", content_type=f'image/png')
         data.add_field('type', image_type)
@@ -386,7 +409,9 @@ class ComfyuiUI:
 
     @staticmethod
     def list_to_str(tags_list):
-        tags: str = ("".join([i+" " for i in tags_list if isinstance(i,str)])).split(",")
+        tags: str = "".join([i+" " for i in tags_list if isinstance(i,str)])
+        tags = re.sub("\[CQ[^\s]*?]", "", tags)
+        tags = tags.split(",")
         return ','.join(tags)
 
     @staticmethod

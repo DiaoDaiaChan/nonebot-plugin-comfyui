@@ -56,6 +56,7 @@ async def comfyui_handler(event: Event, args: Namespace = ShellCommandArgs()):
 
         comfyui_instance.init_images = image_byte
 
+    await UniMessage.text(f"已选择工作流{comfyui_instance.work_flows}, 正在生成, 请稍等.").send()
     await comfyui_instance.posting()
 
     unimsg = UniMessage.text('生成完毕')
