@@ -1,0 +1,6 @@
+{
+  "tipo": {"50": {"override": {"tags": "append_prompt"}}},
+  "sampler": 52,
+  "image_size": 53,
+  "output": 72
+  }

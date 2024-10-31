@@ -1,5 +1,7 @@
-aiohttp
-tqdm
-aiofiles
-nonebot_plugin_alconna
-pydantic
+aiohttp>=3.10.10
+tqdm>=4.66.5
+aiofiles>=24.1.0
+nonebot_plugin_alconna>=0.53.1
+pydantic>=1.10.0
+nonebot2>=2.2.0
+pillow>=11.0.0

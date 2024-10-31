@@ -12,6 +12,7 @@ require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import UniMessage
 
 from .backend.comfyui import ComfyuiUI
+from .backend.utils import run_later
 
 
 async def get_message_at(data: str) -> int:
@@ -56,12 +57,11 @@ async def comfyui_handler(event: Event, args: Namespace = ShellCommandArgs()):
 
         comfyui_instance.init_images = image_byte
 
-    await UniMessage.text(f"已选择工作流{comfyui_instance.work_flows}, 正在生成, 请稍等.").send()
+    await run_later(UniMessage.text(f"已选择工作流: {comfyui_instance.work_flows}, 正在生成, 请稍等.").send(), 2)
     await comfyui_instance.posting()
 
-    unimsg = UniMessage.text('生成完毕')
-    for i in comfyui_instance.image_byte:
-        unimsg += UniMessage.image(raw=i)
+    unimsg: UniMessage = comfyui_instance.unimessage
+    unimsg = UniMessage.text('生成完毕') + unimsg
 
     await unimsg.send(reply_to=True)
 

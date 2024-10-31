@@ -1,13 +1,4 @@
 {
-  "4": {
-    "inputs": {
-      "ckpt_name": "models\\sd3.5_large.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Load Checkpoint"
-    }
-  },
   "6": {
     "inputs": {
       "text": "beautiful scenery nature glass bottle landscape, purple galaxy bottle,",
@@ -28,8 +19,8 @@
         0
       ],
       "vae": [
-        "4",
-        2
+        "304",
+        0
       ]
     },
     "class_type": "VAEDecode",
@@ -52,7 +43,7 @@
     "inputs": {
       "shift": 3,
       "model": [
-        "4",
+        "303",
         0
       ]
     },
@@ -143,7 +134,7 @@
   },
   "294": {
     "inputs": {
-      "seed": 143084108695924,
+      "seed": 1098523532931081,
       "steps": 20,
       "cfg": 4.5,
       "sampler_name": "dpmpp_2m",
@@ -182,6 +173,24 @@
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
+    }
+  },
+  "303": {
+    "inputs": {
+      "unet_name": "sd-webui\\sd3.5_large-Q8_0.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF)"
+    }
+  },
+  "304": {
+    "inputs": {
+      "vae_name": "sd-webui\\sd3.5vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
     }
   }
 }

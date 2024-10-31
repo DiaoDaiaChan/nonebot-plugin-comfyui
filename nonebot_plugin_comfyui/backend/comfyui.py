@@ -2,7 +2,7 @@ import copy
 import json
 import random
 import uuid
-import base64
+import os
 import re
 
 import aiofiles
@@ -16,9 +16,38 @@ from typing import Union, Optional
 from argparse import Namespace
 
 from ..config import config
+from ..handler import UniMessage
+from .utils import pic_audit_standalone
+
+MAX_SEED = 2 ** 32
+
+
+def get_and_filter_work_flows(search=None) -> list:
+    if isinstance(search, str):
+        search = search
+    else:
+        search = None
+
+    wf_files = []
+    for root, dirs, files in os.walk(config.comfyui_workflows_dir):
+        for file in files:
+            if search:
+                if file.endswith('.json') and search in file and not file.endswith('_reflex.json'):
+                    wf_files.append(file.replace('.json', ''))
+            else:
+                if file.endswith('.json') and not file.endswith('_reflex.json'):
+                    wf_files.append(file.replace('.json', ''))
+
+    return wf_files
 
 
 class ComfyuiUI:
+    work_flows_init: list = get_and_filter_work_flows()
+
+    @classmethod
+    def update_wf(cls, search=None):
+        cls.work_flows_init = get_and_filter_work_flows(search)
+        return cls.work_flows_init
 
     def __init__(
             self,
@@ -115,7 +144,15 @@ class ComfyuiUI:
         self.model: str = model or config.comfyui_model
 
         # ComfyuiAPI相关
-        self.work_flows: str = work_flows or "txt2img"
+        if work_flows is None:
+            work_flows = config.comfyui_default_workflows
+        for wf in self.update_wf():
+            if work_flows in wf:
+                self.work_flows = wf
+                break
+            else:
+                self.work_flows = "txt2img"
+
         logger.info(f"选择工作流: {self.work_flows}")
         self.api_json = None
         self.reflex_json = None
@@ -126,10 +163,11 @@ class ComfyuiUI:
         self.user_id = self.nb_event.get_user_id()
         self.task_id = None
 
-        # 图片相关
+        # 流媒体相关
         self.init_images: list[bytes] = []
-        self.image_url: list = []
-        self.image_byte: list[bytes] = []
+        self.media_url: list = []
+        self.unimessage: UniMessage = UniMessage.text("")
+        self.media_type: str = 'image'
 
     async def get_workflows_json(self):
         async with aiofiles.open(
@@ -207,7 +245,16 @@ class ComfyuiUI:
             }
         }
 
-        __OVERRIDE_SUPPORT_KEYS__ = {'keep', 'append_prompt', 'append_negative_prompt', 'remove', "randint"}
+        __OVERRIDE_SUPPORT_KEYS__ = {
+            'keep',
+            'append_prompt',
+            'append_negative_prompt',
+            'remove',
+            "randint",
+            "get_text",
+            "upscale"
+
+        }
         __ALL_SUPPORT_NODE__ = set(update_mapping.keys())
 
         for item, node_id in self.reflex_json.items():
@@ -222,7 +269,7 @@ class ComfyuiUI:
                             for key, override_action in single_node_or.items():
 
                                 if override_action == "randint":
-                                    temp_dict[item][key] = random.randint(0, 99999)
+                                    temp_dict[item][key] = random.randint(0, MAX_SEED)
 
                                 elif override_action == "keep":
                                     continue
@@ -238,7 +285,6 @@ class ComfyuiUI:
                                     api_json[node]['inputs'][key] = prompt
 
                                 elif "upscale" in override_action:
-                                    logger.info("分辨率放大")
                                     scale = 1.5
                                     if "_" in override_action:
                                         scale = override_action.split("_")[1]
@@ -278,9 +324,16 @@ class ComfyuiUI:
             )
 
             if response:
-                for img in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['images']:
-                    img_url = f"{self.backend_url}/view?filename={img['filename']}"
-                    self.image_url.append(img_url)
+                if self.media_type == 'image':
+                    for img in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['images']:
+                        img_url = f"{self.backend_url}/view?filename={img['filename']}"
+                        self.media_url.append(img_url)
+
+                elif self.media_type == 'video':
+                    pass
+
+                elif self.media_type == 'audio':
+                    pass
 
         async with aiohttp.ClientSession() as session:
             ws_url = f'{self.backend_url}/ws?clientId={self.client_id}'
@@ -396,7 +449,9 @@ class ComfyuiUI:
 
     async def download_img(self):
 
-        for url in self.image_url:
+        image_byte = []
+
+        for url in self.media_url:
             response = await self.http_request(
                 method="GET",
                 target_url=url,
@@ -405,7 +460,24 @@ class ComfyuiUI:
 
             logger.info(f"图片: {url}下载成功")
 
-            self.image_byte.append(response)
+            image_byte.append(response)
+
+        if config.comfyui_audit:
+
+            task_list = []
+            for img in image_byte:
+                task_list.append(pic_audit_standalone(img, return_bool=True))
+
+            resp = await asyncio.gather(*task_list, return_exceptions=False)
+
+            for i, img in zip(resp, image_byte):
+                if i:
+                    self.unimessage += UniMessage.text("\n这张图太涩了")
+                else:
+                    self.unimessage += UniMessage.image(raw=img)
+        else:
+            for img in image_byte:
+                self.unimessage += UniMessage.image(raw=img)
 
     @staticmethod
     def list_to_str(tags_list):
@@ -420,4 +492,3 @@ class ComfyuiUI:
         modified_keys = {k for k in dict1.keys() & dict2.keys() if dict1[k] != dict2[k]}
         for key in modified_keys:
             logger.info(f"API请求值映射: {key} -> {dict1[key]} -> {dict2[key]}")
-

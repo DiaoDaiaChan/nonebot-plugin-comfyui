@@ -49,14 +49,16 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 
 **在.env中添加以下配置**
 
-|      基础配置      | 类型  | 必填项 |           默认值           |                                     说明                                     |
-|:--------------:|:---:|:---:|:-----------------------:|:--------------------------------------------------------------------------:|
-|  comfyui_url   | str |  是  | "http://127.0.0.1:8188" |                                comfyui后端地址                                 |
-|comfyui_model| str |  否  |           ""            |                              覆写加载模型节点的时候使用的模型                              |
-|  comfyui_workflows_dir  | str |  是  |     ./data/comfyui      |                                comfyui工作流路径                                |
-| comfyui_default_workflows | str |  否  |        "txt2img"        | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
-|  comfyui_max_res  | int |  否  |          2048           |                                 最大分辨率 ^ 2                                  |
-| comfyui_base_res | int |  否  |          1024           |                                 基础分辨率 ^ 2                                  |
+|      基础配置      |  类型  | 必填项 |                默认值                |                                     说明                                     |
+|:--------------:|:----:|:---:|:---------------------------------:|:--------------------------------------------------------------------------:|
+|  comfyui_url   | str  |  是  |      "http://127.0.0.1:8188"      |                                comfyui后端地址                                 |
+|comfyui_model| str  |  否  |                ""                 |                              覆写加载模型节点的时候使用的模型                              |
+|  comfyui_workflows_dir  | str  |  是  |          ./data/comfyui           |                                comfyui工作流路径                                |
+| comfyui_default_workflows | str  |  否  |             "txt2img"             | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
+|  comfyui_max_res  | int  |  否  |               2048                |                                 最大分辨率 ^ 2                                  |
+| comfyui_base_res | int  |  否  |               1024                |                                 基础分辨率 ^ 2                                  |
+|  comfyui_audit  | bool |  否  |               True                |                                   启动图片审核                                   |
+| comfyui_audit_site | str  |  否  | "http://server.20020026.xyz:7865" |                                   图片审核地址                                   |
 
 
 ```env
@@ -122,7 +124,7 @@ tipo  # tipo提示词生成节点
 
 ## TODO
 - [ ] 支持中文生图
-- [ ] 支持图片审核
+- [x] 支持图片审核
 - [ ] 查看历史生图记录
 - [ ] 多媒体支持 (现在只支持图片)
 

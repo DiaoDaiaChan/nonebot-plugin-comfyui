@@ -1,0 +1,7 @@
+{
+  "tipo": {"50": {"override": {"tags": "append_prompt", "ban_tags": "append_negative_prompt"}}},
+  "sampler": 52,
+  "image_size": 53,
+  "output": 72,
+  "negative_prompt": {"7": {"override": {"text": "append_negative_prompt"}}}
+  }

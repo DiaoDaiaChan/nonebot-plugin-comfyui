@@ -1,17 +1,18 @@
 [project]
 name = "nonebot-plugin-comfyui"
-version = "0.1.5"
+version = "0.1.6"
 description = "适用于NoneBot2的Comfyui绘图插件"
 authors = [
     {name = "DiaoDaiaChan", email = "diaodaiachan@qq.com"},
 ]
 dependencies = [
-    "aiohttp",
-    "tqdm",
-    "aiofiles",
-    "nonebot_plugin_alconna",
-    "pydantic",
-    "nonebot2>=2.2.0"
+    "aiohttp>=3.10.10",
+    "tqdm>=4.66.5",
+    "aiofiles>=24.1.0",
+    "nonebot_plugin_alconna>=0.53.1",
+    "pydantic>=1.10.0",
+    "nonebot2>=2.2.0",
+    "pillow>=11.0.0"
 ]
 requires-python = ">=3.10"
 readme = "README.md"

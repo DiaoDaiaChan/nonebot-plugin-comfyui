@@ -10,6 +10,8 @@ class Config(BaseModel):
     comfyui_default_workflows: str = "txt2img"
     comfyui_max_res: int = 2048
     comfyui_base_res: int = 1024
+    comfyui_audit: bool = True
+    comfyui_audit_site: str = "http://server.20020026.xyz:7865"
 
 
 config = get_plugin_config(Config)

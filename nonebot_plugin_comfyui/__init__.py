@@ -12,6 +12,7 @@ from arclet.alconna import Alconna
 
 from .config import Config, config
 from .handler import comfyui_handler
+from .backend.comfyui import ComfyuiUI
 
 comfyui_parser = ArgumentParser()
 
@@ -106,19 +107,7 @@ async def _():
 
 @view_workflow.handle()
 async def _(search):
-    if isinstance(search, str):
-        search = search
-    else:
-        search = None
-    wf_files = []
-    for root, dirs, files in os.walk(config.comfyui_workflows_dir):
-        for file in files:
-            if search:
-                if file.endswith('.json') and search in file and not file.endswith('_reflex.json'):
-                    wf_files.append(file)
-            else:
-                if file.endswith('.json') and not file.endswith('_reflex.json'):
-                    wf_files.append(file)
+    wf_files = ComfyuiUI.update_wf(search)
     resp = "\n".join(wf_files)
     await view_workflow.finish(f'当前工作流有: {resp}')
 
