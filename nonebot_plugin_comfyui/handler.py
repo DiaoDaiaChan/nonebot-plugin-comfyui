@@ -37,7 +37,7 @@ async def comfyui_handler(event: Event, args: Namespace = ShellCommandArgs()):
     reply = event.reply
     at_id = await get_message_at(event.json())
     # 获取图片url
-    if at_id:
+    if at_id and not reply:
         img_url = [f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"]
     for seg in event.message['image']:
         img_url.append(seg.data["url"])

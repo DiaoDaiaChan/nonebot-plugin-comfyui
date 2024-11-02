@@ -105,7 +105,7 @@ class ComfyuiUI:
             "SGM Uniform": "sgm_uniform",
             "Simple": "simple",
             "Normal": "normal",
-            "DDIM": "ddim_uniform",
+            "ddDDIM": "ddim_uniform",
             "Beta": "beta"
         }
         }
@@ -137,7 +137,7 @@ class ComfyuiUI:
         self.scheduler: str = (
             self.reflex_dict['scheduler'].get(scheduler, "normal") if
             scheduler not in self.reflex_dict['scheduler'].values() else
-            scheduler or "normal"
+            scheduler or "karras"
         )
 
         self.batch_size: int = batch_size or 1
@@ -156,6 +156,7 @@ class ComfyuiUI:
         logger.info(f"选择工作流: {self.work_flows}")
         self.api_json = None
         self.reflex_json = None
+        self.override_backend_setting_dict: dict = {}
         self.backend_url: str = config.comfyui_url
 
         # 用户相关
@@ -207,6 +208,7 @@ class ComfyuiUI:
 
     def update_api_json(self, init_images):
         api_json = copy.deepcopy(self.api_json)
+        raw_api_json = copy.deepcopy(self.api_json)
 
         update_mapping = {
             "sampler": {
@@ -247,40 +249,58 @@ class ComfyuiUI:
 
         __OVERRIDE_SUPPORT_KEYS__ = {
             'keep',
+            'value',
             'append_prompt',
             'append_negative_prompt',
             'remove',
             "randint",
             "get_text",
-            "upscale"
+            "upscale",
+            'image'
 
         }
         __ALL_SUPPORT_NODE__ = set(update_mapping.keys())
 
         for item, node_id in self.reflex_json.items():
 
-            if node_id:
-                if isinstance(node_id, dict):
+            if node_id and item not in ("override", "note"):
+
+                org_node_id = node_id
+
+                if isinstance(node_id, list):
+                    node_id = node_id
+                elif isinstance(node_id, int or str):
+                    node_id = [node_id]
+                elif isinstance(node_id, dict):
+                    node_id = list(node_id.keys())
+
+                for id_ in node_id:
+                    id_ = str(id_)
+                    update_dict = api_json.get(id_, None)
+                    if update_dict and item in update_mapping:
+                        api_json[id_]['inputs'].update(update_mapping[item])
+
+                if isinstance(org_node_id, dict):
                     temp_dict = copy.deepcopy(update_mapping)
-                    for node, override_dict in node_id.items():
+                    for node, override_dict in org_node_id.items():
                         single_node_or = override_dict.get("override", {})
 
                         if single_node_or:
                             for key, override_action in single_node_or.items():
 
                                 if override_action == "randint":
-                                    temp_dict[item][key] = random.randint(0, MAX_SEED)
+                                    api_json[node]['inputs'][key] = random.randint(0, MAX_SEED)
 
                                 elif override_action == "keep":
-                                    continue
+                                    org_cons = raw_api_json[node]['inputs'][key]
 
                                 elif override_action == "append_prompt":
-                                    prompt = api_json[node]['inputs'][key]
+                                    prompt = raw_api_json[node]['inputs'][key]
                                     prompt = self.prompt + prompt
                                     api_json[node]['inputs'][key] = prompt
 
                                 elif override_action == "append_negative_prompt":
-                                    prompt = api_json[node]['inputs'][key]
+                                    prompt = raw_api_json[node]['inputs'][key]
                                     prompt = self.negative_prompt + prompt
                                     api_json[node]['inputs'][key] = prompt
 
@@ -297,18 +317,37 @@ class ComfyuiUI:
                                     upscale_size = int(res * scale)
                                     api_json[node]['inputs'][key] = upscale_size
 
+                                elif "value" in override_action:
+                                        override_value = raw_api_json[node]['inputs'][key]
+                                        if "_" in override_action:
+                                            override_value = override_action.split("_")[1]
+                                            override_type = override_action.split("_")[2]
+                                            if override_type == "int":
+                                                override_value = int(override_value)
+                                            elif override_type == "float":
+                                                override_value = float(override_value)
+                                            elif override_type == "str":
+                                                override_value = str(override_value)
+
+                                        api_json[node]['inputs'][key] = override_value
+
+                                elif "image" in override_action:
+                                    image_id = int(override_action.split("_")[1])
+                                    api_json[node]['inputs'][key] = init_images[image_id]['name']
+
                         else:
                             update_dict = api_json.get(node, None)
                             if update_dict and item in update_mapping:
                                 api_json[node]['inputs'].update(update_mapping[item])
-
-                else:
-                    node_id = [str(node_id)] if isinstance(node_id, int) else node_id
-
-                    for id_ in node_id:
-                        update_dict = api_json.get(id_, None)
-                        if update_dict and item in update_mapping:
-                            api_json[id_]['inputs'].update(update_mapping[item])
+                #
+                # else:
+                #     node_id = [node_id] if isinstance(node_id, int) else node_id
+                #
+                #     for id_ in node_id:
+                #         id_ = str(id_)
+                #         update_dict = api_json.get(id_, None)
+                #         if update_dict and item in update_mapping:
+                #             api_json[id_]['inputs'].update(update_mapping[item])
 
         self.compare_dicts(api_json, self.api_json)
         self.api_json = api_json
@@ -377,6 +416,9 @@ class ComfyuiUI:
     async def posting(self):
 
         await self.get_workflows_json()
+        if self.reflex_json.get('override', None):
+            self.override_backend_setting_dict = self.reflex_json['override']
+            await self.override_backend_setting_func()
 
         upload_img_resp_list = []
 
@@ -492,3 +534,19 @@ class ComfyuiUI:
         modified_keys = {k for k in dict1.keys() & dict2.keys() if dict1[k] != dict2[k]}
         for key in modified_keys:
             logger.info(f"API请求值映射: {key} -> {dict1[key]} -> {dict2[key]}")
+
+    async def override_backend_setting_func(self):
+        """
+        覆写后端设置
+        """""
+
+        for key, arg_value in vars(self.args).items():
+            if hasattr(self, key):
+
+                value = self.override_backend_setting_dict.get(key, None)
+
+                if arg_value:
+                    pass
+                else:
+                    if value is not None:
+                        setattr(self, key, value)

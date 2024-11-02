@@ -7,12 +7,15 @@ from nonebot.plugin.on import on_shell_command, on_command
 
 from nonebot.plugin import require
 require("nonebot_plugin_alconna")
-from nonebot_plugin_alconna import on_alconna, Args
+require("nonebot_plugin_htmlrender")
+from nonebot_plugin_alconna import on_alconna, Args, UniMessage
+from nonebot_plugin_htmlrender import md_to_pic
 from arclet.alconna import Alconna
 
 from .config import Config, config
 from .handler import comfyui_handler
 from .backend.comfyui import ComfyuiUI
+from .backend.help import ComfyuiHelp
 
 comfyui_parser = ArgumentParser()
 
@@ -61,54 +64,60 @@ view_workflow = on_alconna(
 )
 
 help_text = '''
-comfyui绘图插件
+# comfyui 绘图插件
 
-发送 prompt [正面提示词] 来进行一次最简单的生图
+## 发送 prompt
 
------其他参数-----
+发送 `prompt [正面提示词]` 来进行一次最简单的生图。
 
--u 负面提示词
---ar 画幅比例
--s 种子
---steps 采样步数
---cfg CFG scale
--n 去噪强度
--height 高度
--width 宽度
--v 视频输出
--wf 工作流
--sp 采样器
--sch 调度器
--b 每批数量
--m 模型
+### 其他参数
 
------结束-----
+- `-u` 负面提示词
+- `--ar` 画幅比例
+- `-s` 种子
+- `--steps` 采样步数
+- `--cfg` CFG scale
+- `-n` 去噪强度
+- `--height` 高度
+- `--width` 宽度
+- `-v` 视频输出
+- `-wf` 工作流
+- `-sp` 采样器
+- `-sch` 调度器
+- `-b` 每批数量
+- `-m` 模型
 
------其他命令-----
+---
 
-查看工作流 (查看所有工作流)
-查看工作流 flux (查看带有flux的工作流)
+### 其他命令
 
------结束-----
+- 查看工作流 (查看所有工作流)
+- 查看工作流 flux (查看带有 flux 的工作流)
 
-例如:
-prompt a girl, a beautiful girl, masterpiece -u badhand -ar 1:1 -s 123456 -steps 20 -cfg 7.5 -n 1 -height 512 -width 512 -sp "DPM++ 2M Karras"
+---
 
-By: nonebot-plugin-comfyui
-DiaoDaiaChan/nonebot-plugin-comfyui
+### 示例
+```
+prompt a girl, a beautiful girl, masterpiece -u badhand   
+-ar 1:1 -s 123456 -steps 20 -cfg 7.5 -n 1   
+-height 512 -width 512 -sp "DPM++ 2M Karras"
+```
 
+**By:** nonebot-plugin-comfyui  
+**DiaoDaiaChan/nonebot-plugin-comfyui**
 '''
 
 
 @help_.handle()
 async def _():
-    await help_.finish(help_text)
+    img = await md_to_pic(md=help_text)
+    await UniMessage.image(raw=img).finish()
 
 
 @view_workflow.handle()
 async def _(search):
-    wf_files = ComfyuiUI.update_wf(search)
-    resp = "\n".join(wf_files)
-    await view_workflow.finish(f'当前工作流有: {resp}')
 
+    md_ = await ComfyuiHelp().get_md(search)
+    img = await md_to_pic(md=md_, width=800)
 
+    await UniMessage.image(raw=img).send()

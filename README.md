@@ -72,38 +72,11 @@ comfyui_base_res = 1024
 
 ## 关键!
 **comfyui_url**和**comfyui_workflows_dir**是必须的, 否则插件无法正常工作
+# 重要!
 ### 关于comfyui_workflows_dir路径下的工作流格式
 ### 请导出工作流的时候选择导出为API格式!
-### 每个工作流必须拥有对应的_reflex.json文件, 来映射节点, 例如
-目前支持映射的节点如下 (有能力的小伙伴可以在./nonebot_plugin_comfyui/backend/comfyui.py第120行左右中添加更多节点)
-```
-sampler  # 采样器节点, 对应了采样器, 调度器, 种子, 步数, 降噪幅度
-seed  # 覆写种子
-image_size  # 图片的分辨率, 对应空lantent图像
-prompt  # 提示词
-negative_prompt  # 反向提示词
-checkpoint  # load_checkopint节点, 对应了模型
-load_image  # load_image节点, 对应了加载图片
-tipo  # tipo提示词生成节点
-```
-比如说你有一个工作流叫做my_txt2img.json  
-你需要创建一个my_txt2img_reflex.json文件, 内容如下
-````
-{
-  "prompt": 2,  # 对应comfyui-api-json中的node id 为 2的节点, 并且覆写
-  "image_size": 4,
-  "output": 6,  # output 是必须的(你的 Save Image 节点), 其他的其实都可以不需要
-  "seed": 3
-}
-# 高级节点控制
-{
-  "tipo": {"50": {"override": {"tags": "append_prompt"}}},
-  "sampler": 52,
-  "image_size": 53,
-  "output": 72
-  }
-````
-这样插件就可以正确映射节点中的内容
+## [重要!插件基础芝士](./docs/md/node_control.md)
+
 ## ⭐ 使用
 
 > [!note]
@@ -129,5 +102,8 @@ tipo  # tipo提示词生成节点
 - [ ] 多媒体支持 (现在只支持图片)
 
 ## 更新日志
+### 2024.11.2
+- 更新了图片帮助, 以及图片工作流
+- 编写了新的说明
 ### 2024.10.29 
 - 添加 查看工作流 命令
