@@ -10,7 +10,7 @@ import aiohttp
 import asyncio
 
 from tqdm import tqdm
-from nonebot import logger
+from nonebot import logger, get_adapters
 from nonebot.adapters import Event
 from typing import Union, Optional
 from argparse import Namespace
@@ -220,7 +220,8 @@ class ComfyuiUI:
                 "denoise": self.denoise_strength
             },
             "seed": {
-                "seed": self.seed
+                "seed": self.seed,
+                "noise_seed": self.seed
             },
             "image_size": {
                 "width": self.width,
@@ -363,16 +364,19 @@ class ComfyuiUI:
             )
 
             if response:
-                if self.media_type == 'image':
-                    for img in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['images']:
-                        img_url = f"{self.backend_url}/view?filename={img['filename']}"
-                        self.media_url.append(img_url)
+                try:
+                    if self.media_type == 'image':
+                        for img in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['images']:
+                            img_url = f"{self.backend_url}/view?filename={img['filename']}"
+                            self.media_url.append(img_url)
 
-                elif self.media_type == 'video':
-                    pass
+                    elif self.media_type == 'video':
+                        pass
 
-                elif self.media_type == 'audio':
-                    pass
+                    elif self.media_type == 'audio':
+                        pass
+                except KeyError:
+                    logger.error(f"输出节点错误!请检查reflex json中的设置!!!")
 
         async with aiohttp.ClientSession() as session:
             ws_url = f'{self.backend_url}/ws?clientId={self.client_id}'
@@ -504,22 +508,16 @@ class ComfyuiUI:
 
             image_byte.append(response)
 
-        if config.comfyui_audit:
-
-            task_list = []
-            for img in image_byte:
-                task_list.append(pic_audit_standalone(img, return_bool=True))
-
-            resp = await asyncio.gather(*task_list, return_exceptions=False)
-
-            for i, img in zip(resp, image_byte):
-                if i:
-                    self.unimessage += UniMessage.text("\n这张图太涩了")
-                else:
+        if 'OneBot V11' in get_adapters():
+            logger.info('私聊, 不进行审核')
+            from nonebot.adapters.onebot.v11 import PrivateMessageEvent
+            if isinstance(self.nb_event, PrivateMessageEvent):
+                for img in image_byte:
                     self.unimessage += UniMessage.image(raw=img)
+            else:
+                await self.audit_func(image_byte)
         else:
-            for img in image_byte:
-                self.unimessage += UniMessage.image(raw=img)
+            await self.audit_func(image_byte)
 
     @staticmethod
     def list_to_str(tags_list):
@@ -550,3 +548,20 @@ class ComfyuiUI:
                 else:
                     if value is not None:
                         setattr(self, key, value)
+
+    async def audit_func(self, image_byte):
+        if config.comfyui_audit:
+            task_list = []
+            for img in image_byte:
+                task_list.append(pic_audit_standalone(img, return_bool=True))
+
+            resp = await asyncio.gather(*task_list, return_exceptions=False)
+
+            for i, img in zip(resp, image_byte):
+                if i:
+                    self.unimessage += UniMessage.text("\n这张图太涩了")
+                else:
+                    self.unimessage += UniMessage.image(raw=img)
+        else:
+            for img in image_byte:
+                self.unimessage += UniMessage.image(raw=img)

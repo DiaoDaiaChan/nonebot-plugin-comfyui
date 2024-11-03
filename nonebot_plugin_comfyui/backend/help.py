@@ -4,7 +4,10 @@ import json
 import os
 
 from ..config import config
+from .pw import get_workflow_sc
+from typing import Union, Any
 
+from nonebot_plugin_alconna import UniMessage
 
 class ComfyuiHelp:
 
@@ -28,9 +31,11 @@ class ComfyuiHelp:
                     self.workflows_reflex.append(json.loads(content))
                     self.workflows_name.append(filename.replace('_reflex.json', ''))
 
-    async def get_md(self, search):
+        return len(self.workflows_name)
 
-        await self.get_reflex_json(search)
+    async def get_md(self, search) -> Union[str, Any[UniMessage]]:
+
+        len_ = await self.get_reflex_json(search)
 
         head = '''
 # ComfyUI 工作流
@@ -57,5 +62,10 @@ class ComfyuiHelp:
 
             build_form += f'|  {name}   |  {"是" if is_loaded_image else "否"}  |{image_count}张|  {override_msg}   |{note}|\n'
 
-        return build_form
+            if len_ == 1:
+
+                sc_image = await get_workflow_sc(name)
+                return build_form, UniMessage.image(raw=sc_image)
+
+        return build_form, UniMessage.text('')
 

@@ -4,6 +4,7 @@ import aiohttp
 
 from argparse import Namespace
 
+import nonebot
 from nonebot import logger
 from nonebot.adapters import Event
 from nonebot.params import ShellCommandArgs

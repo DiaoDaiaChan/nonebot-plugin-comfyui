@@ -117,7 +117,8 @@ async def _():
 @view_workflow.handle()
 async def _(search):
 
-    md_ = await ComfyuiHelp().get_md(search)
+    md_, msg = await ComfyuiHelp().get_md(search)
     img = await md_to_pic(md=md_, width=800)
 
-    await UniMessage.image(raw=img).send()
+    msg = UniMessage.image(raw=img) + msg
+    await msg.finish()

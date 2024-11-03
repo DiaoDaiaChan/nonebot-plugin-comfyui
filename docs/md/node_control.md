@@ -3,12 +3,23 @@
 ## 为什么需要这个功能?
 ## 答: 因为comfyui的工作流导出的时候, 使用的参数固定死了(比如种子, 分辨率, 步数等等), 本功能就可以选择哪些参数进行定制化(例如重新输入分辨率等等)
 ***
-### 创建一个json文件, 名称和工作流名称一致, 并且加上_reflex
+## 在开始之前, 准备API格式的JSON文件
+### 首先,本插件必须要有一个Save Image节点来输出
+![emb](../image/setting4.png)
+### 之后, 导出API格式的JSON工作流文件
+![emb](../image/setting1.png)  
+![emb](../image/setting2.png)  
+![emb](../image/setting3.png)  
+***
+## 创建一个json文件, 名称和工作流名称一致, 并且加上_reflex, 把它们一起放在./data/comfyui(你设置的工作流路径内)
 比如说你有一个工作流叫做my_txt2img.json 
 你需要创建一个my_txt2img_reflex.json文件, 内容如下
 ### 键为: 请看表 覆写节点名称 , 值为comfyui导出的json文件中对应的节点ID
-### 覆写的意思是, prompt -t 30 , 这里的步数30步, 覆写到comfyui的API json中, 因为api json中的值是固定的
-![emb](../image/node.png)  
+### ⚠️⚠️⚠️!注意看图! 关键是output, 连接到了SaveImage节点, 这个是必须的️⚠️⚠️
+
+![emb](../image/node.png)
+### ️⚠️⚠️其他的节点都可以不覆写, 但是你就无法通过参数来控制工作流内的参数 ️⚠️⚠️️⚠️
+![emb](../image/setting5.png)
 ```
 {
 "prompt": 32,
@@ -26,6 +37,7 @@
   }
 ```
 ### 接下来为高级节点控制, 请观察以下
+### 覆写的意思是, prompt -t 30 , 这里的步数30步, 覆写到comfyui的API json中, 因为api json中的值是固定的
 ```
 {
 # 覆写多个节点
@@ -42,7 +54,6 @@
 # 需要输入多个图片的工作流
 "image": {"50": {"override": {"image": "image_0"}}, "52": {"override": {"image": "image_1"}}}  # 为50节点选择第一张图片, 52节点第二张
 ```
-### 请注意, 只有output是必须的, 其他的节点都可以不覆写
 ****
 目前支持映射的节点如下 (有能力的小伙伴可以在./nonebot_plugin_comfyui/backend/comfyui.py第120行左右中添加更多节点)
 ### 覆写节点名称
