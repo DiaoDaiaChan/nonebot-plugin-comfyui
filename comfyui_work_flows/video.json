@@ -1,0 +1,39 @@
+{
+  "98": {
+    "inputs": {
+      "frame_rate": 11,
+      "loop_count": 0,
+      "filename_prefix": "AnimateDiff",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "101",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "101": {
+    "inputs": {
+      "video": "2024-07-21 09-28-04.mkv",
+      "force_rate": 1,
+      "force_size": "Custom Height",
+      "custom_width": 512,
+      "custom_height": 128,
+      "frame_load_cap": 20,
+      "skip_first_frames": 0,
+      "select_every_nth": 1
+    },
+    "class_type": "VHS_LoadVideoPath",
+    "_meta": {
+      "title": "Load Video (Path) 🎥🅥🅗🅢"
+    }
+  }
+}

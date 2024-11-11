@@ -5,7 +5,7 @@ import aiohttp
 from argparse import Namespace
 
 import nonebot
-from nonebot import logger
+from nonebot import logger, Bot
 from nonebot.adapters import Event
 from nonebot.params import ShellCommandArgs
 from nonebot.plugin import require
@@ -30,9 +30,9 @@ async def get_message_at(data: str) -> int:
         return None
 
 
-async def comfyui_handler(event: Event, args: Namespace = ShellCommandArgs()):
+async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):
 
-    comfyui_instance = ComfyuiUI(**vars(args), nb_event=event, args=args)
+    comfyui_instance = ComfyuiUI(**vars(args), nb_event=event, args=args, bot=bot)
 
     img_url = []
     reply = event.reply
@@ -59,11 +59,15 @@ async def comfyui_handler(event: Event, args: Namespace = ShellCommandArgs()):
         comfyui_instance.init_images = image_byte
 
     await run_later(UniMessage.text(f"已选择工作流: {comfyui_instance.work_flows}, 正在生成, 请稍等.").send(), 2)
+
+    await comfyui_instance.select_backend()
     await comfyui_instance.posting()
 
     unimsg: UniMessage = comfyui_instance.unimessage
     unimsg = UniMessage.text('生成完毕') + unimsg
 
     await unimsg.send(reply_to=True)
+    if comfyui_instance.multimedia_unimsg:
+        await comfyui_instance.multimedia_unimsg.send()
 
 

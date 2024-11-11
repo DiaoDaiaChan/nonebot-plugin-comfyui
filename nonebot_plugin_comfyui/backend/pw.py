@@ -26,7 +26,6 @@ async def get_workflow_sc(wf):
         drop_area = await page.query_selector('#comfy-file-input')
         await drop_area.set_input_files(file_path)
 
-        await page.wait_for_timeout(2000)
         await page.wait_for_load_state('networkidle')
 
         screenshot_path = Path('screenshot.jpg').resolve()
@@ -34,6 +33,7 @@ async def get_workflow_sc(wf):
 
         async with aiofiles.open(screenshot_path, 'rb') as f:
             image_bytes = await f.read()
+            await browser.close()
             return image_bytes
 
 

@@ -1,7 +1,7 @@
 {
   "4": {
     "inputs": {
-      "ckpt_name": "models\\noobaiXLNAIXL_epsilonPred075.safetensors"
+      "ckpt_name": "noobaiXLNAIXL_epsilonPred075.safetensors"
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {
@@ -39,11 +39,11 @@
   },
   "52": {
     "inputs": {
-      "seed": 827161675580144,
-      "steps": 30,
-      "cfg": 8,
-      "sampler_name": "euler",
-      "scheduler": "karras",
+      "seed": 655659811516617,
+      "steps": 20,
+      "cfg": 7,
+      "sampler_name": "ddim",
+      "scheduler": "normal",
       "denoise": 1,
       "model": [
         "4",
@@ -70,7 +70,7 @@
   "53": {
     "inputs": {
       "width": 1152,
-      "height": 1536,
+      "height": 1736,
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",
@@ -80,7 +80,7 @@
   },
   "72": {
     "inputs": {
-      "filename_prefix": "ComfyUI",
+      "filename_prefix": "ComfyUI/noob075/",
       "images": [
         "8",
         0
@@ -93,7 +93,7 @@
   },
   "83": {
     "inputs": {
-      "text": "very aesthetic, (full_body),Collarbone,(whitehair),red eyes,1girl,solo,long_hair,smile,eyebrows_visible_through_hair,closed_mouth,blush,hair_bow,bangs,hair_between_eyes,look_at_viewer,white socks,mary janes,(braided bangs),simple background,Hands over the mouth,lolita fashion,(Umehara sei:1),(onineko:1),na kyo,deep (deep4946),qianqianjie,(shinyo yukino:1.1),(artist:@@@:1)  maid,  best quality, amazing quality, very aesthetic, absurdres",
+      "text": " ,(artist:umehara sei:1),(artist:onineko:1),(artist:na kyo:1),(artist:deep (deep4946)),(artist:qianqianjie:1),(artist:shinyo yukino:1),(artist:rurudo:1), (artist:torino aqua:0.4),best quality, amazing quality, very aesthetic, absurdres,",
       "clip": [
         "4",
         1
@@ -102,6 +102,34 @@
     "class_type": "CLIPTextEncode",
     "_meta": {
       "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "84": {
+    "inputs": {
+      "filename_prefix": "ComfyUI/noob075/",
+      "filename_keys": "sampler_name, cfg, steps, %F %H-%M-%S",
+      "foldername_prefix": "",
+      "foldername_keys": "%F, ckpt_name",
+      "delimiter": "-",
+      "save_job_data": "disabled",
+      "job_data_per_image": false,
+      "job_custom_text": "",
+      "save_metadata": false,
+      "counter_digits": 4,
+      "counter_position": "last",
+      "one_counter_per_folder": true,
+      "image_preview": true,
+      "output_ext": ".png",
+      "quality": 100,
+      "named_keys": false,
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImageExtended",
+    "_meta": {
+      "title": "💾 Save Image Extended"
     }
   }
 }

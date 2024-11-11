@@ -4,7 +4,7 @@
 
 _⭐基于NoneBot2调用Comfyui(https://github.com/comfyanonymous/ComfyUI)进行绘图的插件⭐_  
 _⭐AI文生图,图生图...插件(comfyui能做到的它都可以)⭐_  
-_⭐本插件适配单后端, 对于多后端请转到https://github.com/DiaoDaiaChan/nonebot-plugin-stable-diffusion-diao⭐_
+_⭐本插件适配多后端, 不过对于更多的多后端支持请转到https://github.com/DiaoDaiaChan/nonebot-plugin-stable-diffusion-diao⭐_
 
 <a href="https://www.python.org/downloads/release/python-390/"><img src="https://img.shields.io/badge/python-3.10+-blue"></a>  <a href=""><img src="https://img.shields.io/badge/QQ-437012661-yellow"></a> <a href="https://github.com/Cvandia/nonebot-plugin-game-torrent/blob/main/LICENCE"><img src="https://img.shields.io/badge/license-MIT-blue"></a> <a href="https://v2.nonebot.dev/"><img src="https://img.shields.io/badge/Nonebot2-2.2.0+-red"></a>
 
@@ -49,25 +49,33 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 
 **在.env中添加以下配置**
 
-|      基础配置      |  类型  | 必填项 |                默认值                |                                     说明                                     |
-|:--------------:|:----:|:---:|:---------------------------------:|:--------------------------------------------------------------------------:|
-|  comfyui_url   | str  |  是  |      "http://127.0.0.1:8188"      |                                comfyui后端地址                                 |
-|comfyui_model| str  |  否  |                ""                 |                              覆写加载模型节点的时候使用的模型                              |
-|  comfyui_workflows_dir  | str  |  是  |          ./data/comfyui           |                                comfyui工作流路径                                |
-| comfyui_default_workflows | str  |  否  |             "txt2img"             | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
-|  comfyui_max_res  | int  |  否  |               2048                |                                 最大分辨率 ^ 2                                  |
-| comfyui_base_res | int  |  否  |               1024                |                                 基础分辨率 ^ 2                                  |
-|  comfyui_audit  | bool |  否  |               True                |                                   启动图片审核                                   |
-| comfyui_audit_site | str  |  否  | "http://server.20020026.xyz:7865" |                                   图片审核地址                                   |
+|           基础配置            |  类型  | 必填项 |                        默认值                         |                                     说明                                     |
+|:-------------------------:|:----:|:---:|:--------------------------------------------------:|:--------------------------------------------------------------------------:|
+|        comfyui_url        | str  |  是  |              "http://127.0.0.1:8188"               |                                comfyui后端地址                                 |
+|     comfyui_url_list      | list |  否  | ["http://127.0.0.1:8188", "http://127.0.0.1:8288"] |                               comfyui后端地址列表                                |
+|        comfyui_multi_backend        | bool |  否  |                       False                        |                                   多后端支持                                    |
+|       comfyui_model       | str  |  否  |                         ""                         |                              覆写加载模型节点的时候使用的模型                              |
+|   comfyui_workflows_dir   | str  |  是  |                   ./data/comfyui                   |                                comfyui工作流路径                                |
+| comfyui_default_workflows | str  |  否  |                     "txt2img"                      | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
+|      comfyui_max_res      | int  |  否  |                        2048                        |                                 最大分辨率 ^ 2                                  |
+|     comfyui_base_res      | int  |  否  |                        1024                        |                                 基础分辨率 ^ 2                                  |
+|       comfyui_audit       | bool |  否  |                        True                        |                                   启动图片审核                                   |
+|    comfyui_audit_site     | str  |  否  |         "http://server.20020026.xyz:7865"          |                                   图片审核地址                                   |
+|    comfyui_save_image     | bool |  否  |                        True                        |                                是否保存媒体文件到本地                                 |
 
 
 ```env
-comfyui_url = "http://127.0.0.1:8188"
+comfyui_url= "http://127.0.0.1:8188"
+comfyui_url_list = ["http://127.0.0.1:8188", "http://127.0.0.1:8288"]
+comfyui_multi_backend = False
 comfyui_model = ""
-comfyui_workflows_dir = ""
+comfyui_workflows_dir = "./data/comfyui"
 comfyui_default_workflows = "txt2img"
 comfyui_max_res = 2048
 comfyui_base_res = 1024
+comfyui_audit = True
+comfyui_audit_site = "http://server.20020026.xyz:7865"
+comfyui_save_image = True
 ```
 
 ## 关键!
@@ -99,9 +107,18 @@ comfyui_base_res = 1024
 - [ ] 支持中文生图
 - [x] 支持图片审核
 - [ ] 查看历史生图记录
-- [ ] 多媒体支持 (现在只支持图片)
+- [x] 多媒体支持 (已支持图片/视频)
+- [x] 保存图片
+- [x] 支持设置多个后端
 
 ## 更新日志
+### 2024.11.11 0.3
+- 支持视频
+- 生成的图片等会保存到本地(comfyui_save_image)来设置
+- 群里画出的涩涩会尝试发送到私聊
+- 新的 -o 参数, 会忽略掉自带的提示词, 全听输入的
+- 新的 -be 参数, 选择后端索引或者输入后端url
+- 支持设置多个后端
 ### 2024.11.2
 - 更新了图片帮助, 以及图片工作流
 - 编写了新的说明

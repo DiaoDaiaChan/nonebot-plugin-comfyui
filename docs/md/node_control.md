@@ -1,5 +1,5 @@
 # 本插件提供了详细的控制节点输入的功能
-****
+
 ## 为什么需要这个功能?
 ## 答: 因为comfyui的工作流导出的时候, 使用的参数固定死了(比如种子, 分辨率, 步数等等), 本功能就可以选择哪些参数进行定制化(例如重新输入分辨率等等)
 ***
@@ -58,19 +58,20 @@
 目前支持映射的节点如下 (有能力的小伙伴可以在./nonebot_plugin_comfyui/backend/comfyui.py第120行左右中添加更多节点)
 ### 覆写节点名称
 
-|     覆写节点名称      | 是否必须填写 |                                                                                               详细参数/会覆写掉的参数                                                                                                |                 说明                 |权限|
-|:---------------:|:------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----------------------------------:|:---:|
-|     output      |   是    |                                                                                               无(关键节点, 必须要填)                                                                                               |       对应comfyui的Save image节点       |all|
-|     sampler     |   否    |                                                                             seed, steps, cfg, sampler_name, scheduler,denoise                                                                             |                    对应comfyui的KSampler节点                |all|
-|      seed       |   否    |                                                                                                   seed                                                                                                    |            覆写任何有seed的节点            |all|
-|   image_size    |   否    |                                                                                         width, height, batch_size                                                                                         |    对应comfyui的EmptyLatentImage节点    |all|
-|     prompt      |   否    |                                                                                                   text                                                                                                    |     对应comfyui的CLIPTextEncode节点     |all|
-| negative_prompt |   否    |                                                                                                   text                                                                                                    |     对应comfyui的CLIPTextEncode节点     |all|
-|   checkpoint    |   否    |                                                                                                 ckpt_name                                                                                                 | 对应comfyui的CheckpointLoaderSimple节点 |all|
-|   load_image    |   否    |                                                                                                   image                                                                                                   |       对应comfyui的LoadImage节点        |all|
-|      tipo       |   否    |                                                                                         width, height, seed, tags                                                                                         |          对应comfyui的TIPO节点          |all|
-|    override     |   否    |                      字典,支持的键prompt, negative_prompt, accept_ratio, seed, steps, cfg_scale, denoise_strength, height, width, video, work_flows, sampler, scheduler, batch_size, model                      |               选择到此工作流的时候使用的自定义参数, 例如我想要此工作流默认使用30步绘图, 使用采样器ddim,但是不想修改工作流文件, 可以这样写"override": {"sampler": "ddim", "steps": 30}               |all|
-|      note       |   否    |                                                                                           字符串, 备注节点, 会被加入到帮助菜单中                                                                                           |                 备注                 |all|
+|     覆写节点名称      | 是否必须填写 |                                                                          详细参数/会覆写掉的参数                                                                           |                 说明                 |权限|
+|:---------------:|:------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----------------------------------:|:---:|
+|     output      |   是    |                                                                          无(关键节点, 必须要填)                                                                          |       对应comfyui的Save image节点       |all|
+|     sampler     |   否    |                                                        seed, steps, cfg, sampler_name, scheduler,denoise                                                        |                    对应comfyui的KSampler节点                |all|
+|      seed       |   否    |                                                                              seed                                                                               |            覆写任何有seed的节点            |all|
+|   image_size    |   否    |                                                                    width, height, batch_size                                                                    |    对应comfyui的EmptyLatentImage节点    |all|
+|     prompt      |   否    |                                                                         text  (覆写正面提示词)                                                                         |     对应comfyui的CLIPTextEncode节点     |all|
+| negative_prompt |   否    |                                                                        text   (覆写负面提示词)                                                                         |     对应comfyui的CLIPTextEncode节点     |all|
+|   checkpoint    |   否    |                                                                            ckpt_name                                                                            | 对应comfyui的CheckpointLoaderSimple节点 |all|
+|   load_image    |   否    |                                                                              image                                                                              |       对应comfyui的LoadImage节点        |all|
+|      tipo       |   否    |                                                                    width, height, seed, tags                                                                    |          对应comfyui的TIPO节点          |all|
+|    override     |   否    | 字典,支持的键prompt, negative_prompt, accept_ratio, seed, steps, cfg_scale, denoise_strength, height, width, video, work_flows, sampler, scheduler, batch_size, model |               选择到此工作流的时候使用的自定义参数, 例如我想要此工作流默认使用30步绘图, 使用采样器ddim,但是不想修改工作流文件, 可以这样写"override": {"sampler": "ddim", "steps": 30}               |all|
+|      note       |   否    |                                                                      字符串, 备注节点, 会被加入到帮助菜单中                                                                      |                 备注                 |all|
+|      media      |   否    |                                                                      字符串, 暂时支持image, video                                                                      |                 字符串, 标记这条工作流的输出是什么类型                 |all|
 ****
 ## 节点高级操作
 |   覆写操作    | 需要额外参数 |              参数说明               |         说明          |权限|

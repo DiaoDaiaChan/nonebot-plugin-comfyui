@@ -8,51 +8,68 @@ import re
 import aiofiles
 import aiohttp
 import asyncio
+import hashlib
 
+import nonebot
 from tqdm import tqdm
-from nonebot import logger, get_adapters
+from nonebot import logger
 from nonebot.adapters import Event
 from typing import Union, Optional
 from argparse import Namespace
+from pathlib import Path
+from datetime import datetime
 
 from ..config import config
 from ..handler import UniMessage
-from .utils import pic_audit_standalone
+from .utils import pic_audit_standalone, run_later
 
 MAX_SEED = 2 ** 32
 
 
-def get_and_filter_work_flows(search=None) -> list:
-    if isinstance(search, str):
-        search = search
-    else:
+def get_and_filter_work_flows(search=None, index=None) -> list:
+
+    index = int(index) if index else None
+
+    if not isinstance(search, str):
         search = None
 
     wf_files = []
     for root, dirs, files in os.walk(config.comfyui_workflows_dir):
         for file in files:
-            if search:
-                if file.endswith('.json') and search in file and not file.endswith('_reflex.json'):
+            if file.endswith('.json') and not file.endswith('_reflex.json'):
+                if search and search in file:
                     wf_files.append(file.replace('.json', ''))
-            else:
-                if file.endswith('.json') and not file.endswith('_reflex.json'):
+                elif not search:
                     wf_files.append(file.replace('.json', ''))
 
+    if index is not None:
+        if 1 <= index < len(wf_files) + 1:
+            return [wf_files[index-1]]
+        else:
+            return []
+
     return wf_files
+
+
+class ComfyUIQueue:
+    def __init__(self, queue_size=10):
+        self.queue = asyncio.Queue(maxsize=queue_size)
+        self.semaphore = asyncio.Semaphore(queue_size)
 
 
 class ComfyuiUI:
     work_flows_init: list = get_and_filter_work_flows()
 
     @classmethod
-    def update_wf(cls, search=None):
-        cls.work_flows_init = get_and_filter_work_flows(search)
+    def update_wf(cls, search=None, index=None):
+        cls.work_flows_init = get_and_filter_work_flows(search, index=index)
         return cls.work_flows_init
 
     def __init__(
             self,
             nb_event: Event,
             args: Namespace,
+            bot: nonebot.Bot,
             prompt: str = None,
             negative_prompt: str = None,
             accept_ratio: str = None,
@@ -68,6 +85,8 @@ class ComfyuiUI:
             scheduler: Optional[str] = None,
             batch_size: Optional[int] = None,
             model: Optional[str] = None,
+            override: Optional[bool] = False,
+            backend: Optional[str] = None,
             **kwargs
     ):
 
@@ -113,21 +132,21 @@ class ComfyuiUI:
         # 必要参数
         self.nb_event = nb_event
         self.args = args
+        self.bot = bot
 
         # 绘图参数相关
         self.prompt: str = self.list_to_str(prompt or "")
         self.negative_prompt: str = self.list_to_str(negative_prompt or "")
         self.accept_ratio: str = accept_ratio
         if self.accept_ratio is None:
-            self.height: int = height or 1024
-            self.width: int = width or 1024
+            self.height: int = height or 1216
+            self.width: int = width or 832
         else:
             self.width, self.height = self.extract_ratio()
         self.seed: int = seed or random.randint(0, 2 ^ 32)
         self.steps: int = steps or 20
         self.cfg_scale: float = cfg_scale or 7.0
         self.denoise_strength: float = denoise_strength or 1.0
-        self.video: bool = video or False
 
         self.sampler: str = (
             self.reflex_dict['sampler'].get(sampler, "dpmpp_2m") if
@@ -142,33 +161,50 @@ class ComfyuiUI:
 
         self.batch_size: int = batch_size or 1
         self.model: str = model or config.comfyui_model
+        self.override = override
 
         # ComfyuiAPI相关
         if work_flows is None:
             work_flows = config.comfyui_default_workflows
-        for wf in self.update_wf():
-            if work_flows in wf:
-                self.work_flows = wf
-                break
+
+        for wf in self.update_wf(index=work_flows if work_flows.strip().isdigit() else None):
+
+            if len(self.work_flows_init) == 1:
+                self.work_flows = self.work_flows_init[0]
+
             else:
-                self.work_flows = "txt2img"
+                if work_flows in wf:
+                    self.work_flows = wf
+                    break
+                else:
+                    self.work_flows = "txt2img"
 
         logger.info(f"选择工作流: {self.work_flows}")
-        self.api_json = None
+        self.comfyui_api_json = None
         self.reflex_json = None
         self.override_backend_setting_dict: dict = {}
-        self.backend_url: str = config.comfyui_url
+
+        self.selected_backend = backend
+        if backend is not None and backend.isdigit():
+            self.backend_url = config.comfyui_url_list[int(backend)]
+        else:
+            self.backend_url = backend
+
+        self.backend_url: str = self.backend_url if backend else config.comfyui_url
 
         # 用户相关
         self.client_id = uuid.uuid4().hex
         self.user_id = self.nb_event.get_user_id()
         self.task_id = None
+        self.adapters = nonebot.get_adapters()
 
         # 流媒体相关
         self.init_images: list[bytes] = []
         self.media_url: list = []
         self.unimessage: UniMessage = UniMessage.text("")
-        self.media_type: str = 'image'
+        self.multimedia_unimsg: UniMessage = None
+        self.media_type: str = 'video' if video else 'image'
+        self.file_format: str = '.png'
 
     async def get_workflows_json(self):
         async with aiofiles.open(
@@ -176,7 +212,7 @@ class ComfyuiUI:
                 'r',
                 encoding='utf-8'
         ) as f:
-            self.api_json = json.loads(await f.read())
+            self.comfyui_api_json = json.loads(await f.read())
 
         async with aiofiles.open(
                 f"{config.comfyui_workflows_dir}/{self.work_flows}_reflex.json",
@@ -185,30 +221,30 @@ class ComfyuiUI:
         ) as f:
             self.reflex_json = json.loads(await f.read())
 
-    def extract_ratio(self, max_res=None):
+    def extract_ratio(self):
         """
         提取宽高比为分辨率
         """
-
         if ":" in self.accept_ratio:
             width_ratio, height_ratio = map(int, self.accept_ratio.split(':'))
         else:
             return 768, 1152
 
-        max_resolution = config.comfyui_base_res
+        total_pixels = config.comfyui_base_res ** 2
         aspect_ratio = width_ratio / height_ratio
+
         if aspect_ratio >= 1:
-            width = int(min(max_resolution, max_resolution))
+            width = int((total_pixels * aspect_ratio) ** 0.5)
             height = int(width / aspect_ratio)
         else:
-            height = int(min(max_resolution, max_resolution))
+            height = int((total_pixels / aspect_ratio) ** 0.5)
             width = int(height * aspect_ratio)
 
         return width, height
 
     def update_api_json(self, init_images):
-        api_json = copy.deepcopy(self.api_json)
-        raw_api_json = copy.deepcopy(self.api_json)
+        api_json = copy.deepcopy(self.comfyui_api_json)
+        raw_api_json = copy.deepcopy(self.comfyui_api_json)
 
         update_mapping = {
             "sampler": {
@@ -261,10 +297,14 @@ class ComfyuiUI:
 
         }
         __ALL_SUPPORT_NODE__ = set(update_mapping.keys())
+        other_action = ("override", "note", "presets", "media")
 
         for item, node_id in self.reflex_json.items():
 
-            if node_id and item not in ("override", "note"):
+            if item == "media":
+                self.media_type = node_id
+
+            if node_id and item not in other_action:
 
                 org_node_id = node_id
 
@@ -282,7 +322,6 @@ class ComfyuiUI:
                         api_json[id_]['inputs'].update(update_mapping[item])
 
                 if isinstance(org_node_id, dict):
-                    temp_dict = copy.deepcopy(update_mapping)
                     for node, override_dict in org_node_id.items():
                         single_node_or = override_dict.get("override", {})
 
@@ -295,12 +334,12 @@ class ComfyuiUI:
                                 elif override_action == "keep":
                                     org_cons = raw_api_json[node]['inputs'][key]
 
-                                elif override_action == "append_prompt":
+                                elif override_action == "append_prompt" and self.override is False:
                                     prompt = raw_api_json[node]['inputs'][key]
                                     prompt = self.prompt + prompt
                                     api_json[node]['inputs'][key] = prompt
 
-                                elif override_action == "append_negative_prompt":
+                                elif override_action == "append_negative_prompt" and self.override is False:
                                     prompt = raw_api_json[node]['inputs'][key]
                                     prompt = self.negative_prompt + prompt
                                     api_json[node]['inputs'][key] = prompt
@@ -340,43 +379,48 @@ class ComfyuiUI:
                             update_dict = api_json.get(node, None)
                             if update_dict and item in update_mapping:
                                 api_json[node]['inputs'].update(update_mapping[item])
-                #
-                # else:
-                #     node_id = [node_id] if isinstance(node_id, int) else node_id
-                #
-                #     for id_ in node_id:
-                #         id_ = str(id_)
-                #         update_dict = api_json.get(id_, None)
-                #         if update_dict and item in update_mapping:
-                #             api_json[id_]['inputs'].update(update_mapping[item])
 
-        self.compare_dicts(api_json, self.api_json)
-        self.api_json = api_json
+        self.compare_dicts(api_json, self.comfyui_api_json)
+        self.comfyui_api_json = api_json
 
     async def heart_beat(self, id_):
         logger.info(f"{id_} 开始请求")
 
         async def get_images():
 
-            response = await self.http_request(
+            response: dict = await self.http_request(
                 method="GET",
                 target_url=f"{self.backend_url}/history/{id_}",
             )
 
-            if response:
-                try:
-                    if self.media_type == 'image':
-                        for img in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['images']:
-                            img_url = f"{self.backend_url}/view?filename={img['filename']}"
-                            self.media_url.append(img_url)
+            try:
+                if self.media_type == 'image':
+                    for img in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['images']:
+                        filename = img['filename']
+                        _, self.file_format = os.path.splitext(filename)
 
-                    elif self.media_type == 'video':
-                        pass
+                        if img['subfolder'] == "":
+                            url = f"{self.backend_url}/view?filename={filename}"
+                        else:
+                            url = f"{self.backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
 
-                    elif self.media_type == 'audio':
-                        pass
-                except KeyError:
-                    logger.error(f"输出节点错误!请检查reflex json中的设置!!!")
+                elif self.media_type == 'video':
+                    for img in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['gifs']:
+                        filename = img['filename']
+                        _, self.file_format = os.path.splitext(filename)
+
+                        if img['subfolder'] == "":
+                            url = f"{self.backend_url}/view?filename={filename}"
+                        else:
+                            url = f"{self.backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
+
+                elif self.media_type == 'audio':
+                    pass
+
+                self.media_url.append(url)
+
+            except KeyError:
+                logger.error(f"输出节点错误!请检查reflex json中的设置!!!")
 
         async with aiohttp.ClientSession() as session:
             ws_url = f'{self.backend_url}/ws?clientId={self.client_id}'
@@ -435,7 +479,7 @@ class ComfyuiUI:
 
         input_ = {
             "client_id": self.client_id,
-            "prompt": self.api_json
+            "prompt": self.comfyui_api_json
         }
 
         respone = await self.http_request(
@@ -480,7 +524,7 @@ class ComfyuiUI:
                 else:
                     return await response.read()
 
-    async def upload_image(self, image_data: bytes, name, image_type="input", overwrite=False):
+    async def upload_image(self, image_data: bytes, name, image_type="input", overwrite=False) -> dict:
 
         logger.info(f"图片: {name}上传成功")
 
@@ -508,16 +552,10 @@ class ComfyuiUI:
 
             image_byte.append(response)
 
-        if 'OneBot V11' in get_adapters():
-            logger.info('私聊, 不进行审核')
-            from nonebot.adapters.onebot.v11 import PrivateMessageEvent
-            if isinstance(self.nb_event, PrivateMessageEvent):
-                for img in image_byte:
-                    self.unimessage += UniMessage.image(raw=img)
-            else:
-                await self.audit_func(image_byte)
-        else:
-            await self.audit_func(image_byte)
+        if config.comfyui_save_image:
+            await run_later(self.save_media(image_byte), 2)
+
+        await self.audit_func(image_byte)
 
     @staticmethod
     def list_to_str(tags_list):
@@ -549,19 +587,122 @@ class ComfyuiUI:
                     if value is not None:
                         setattr(self, key, value)
 
+    async def send_nsfw_image_to_private(self, image):
+
+        try:
+            if 'OneBot V11' in self.adapters:
+                from nonebot.adapters.onebot.v11 import MessageSegment
+                await self.bot.send_private_msg(user_id=self.user_id, message=MessageSegment.image(image))
+            else:
+                raise NotImplementedError("暂不支持其他机器人")
+
+        except (NotImplementedError or Exception) as e:
+            if isinstance(NotImplementedError, e):
+                logger.warning("发送失败, 暂不支持其他机器人")
+            else:
+                await UniMessage.text('图图私聊发送失败了!是不是没加机器人好友...').send()
+
     async def audit_func(self, image_byte):
-        if config.comfyui_audit:
-            task_list = []
-            for img in image_byte:
-                task_list.append(pic_audit_standalone(img, return_bool=True))
 
-            resp = await asyncio.gather(*task_list, return_exceptions=False)
+        if self.media_type == "image":
 
-            for i, img in zip(resp, image_byte):
-                if i:
-                    self.unimessage += UniMessage.text("\n这张图太涩了")
-                else:
+            if 'OneBot V11' in self.adapters:
+                from nonebot.adapters.onebot.v11 import PrivateMessageEvent
+                if isinstance(self.nb_event, PrivateMessageEvent):
+                    logger.info('私聊, 不进行审核')
+                    for img in image_byte:
+                        self.unimessage += UniMessage.image(raw=img)
+
+                    return
+
+            if config.comfyui_audit:
+                task_list = []
+                for img in image_byte:
+                    task_list.append(pic_audit_standalone(img, return_bool=True))
+
+                resp = await asyncio.gather(*task_list, return_exceptions=False)
+
+                for i, img in zip(resp, image_byte):
+                    if i:
+                        self.unimessage += UniMessage.text("\n这张图太涩了,私聊发给你了哦!")
+                        await run_later(self.send_nsfw_image_to_private(img))
+                    else:
+                        self.unimessage += UniMessage.image(raw=img)
+
+            else:
+                for img in image_byte:
                     self.unimessage += UniMessage.image(raw=img)
+
+        elif self.media_type == "video":
+            for video in image_byte:
+                self.multimedia_unimsg = UniMessage.video(raw=video)
+
+    async def get_backend_work_status(self, url):
+
+        resp = await self.http_request("GET", target_url=f"{url}/queue")
+        return resp
+
+    async def select_backend(self):
+
+        if config.comfyui_multi_backend and self.selected_backend is None:
+            task_list = []
+            for task in config.comfyui_url_list:
+                task_list.append(self.get_backend_work_status(task))
+
+            resp = await asyncio.gather(*task_list, return_exceptions=True)
+
+            backend_dict = {}
+            for i, backend_url in zip(resp, config.comfyui_url_list):
+                if isinstance(i, Exception):
+                    logger.info(f"后端 {backend_url} 掉线")
+
+                else:
+                    backend_dict[backend_url] = i
+
+            fastest_backend = min(
+                backend_dict.items(),
+                key=lambda x: len(x[1]["queue_running"]) + len(x[1]["queue_pending"]),
+                default=(None, None)
+            )
+
+            fastest_backend_url, fastest_backend_info = fastest_backend
+
+            if fastest_backend_url:
+                logger.info(f"选择的最快后端: {fastest_backend_url}，队列信息: {fastest_backend_info}")
+            else:
+                logger.info("没有可用的后端")
+
+            self.backend_url = fastest_backend_url
+
         else:
-            for img in image_byte:
-                self.unimessage += UniMessage.image(raw=img)
+            logger.info("未设置多后端功能, 跳过选择")
+
+        return
+
+    async def save_media(self, media_bytes: list[bytes]):
+
+        path = Path("data/comfyui/output").resolve()
+
+        async def get_hash(img_bytes):
+            hash_ = hashlib.md5(img_bytes).hexdigest()
+            return hash_
+
+        now = datetime.now()
+        short_time_format = now.strftime("%Y-%m-%d")
+
+        user_id_path = self.user_id
+        path_ = path / self.media_type / short_time_format / user_id_path
+        path_.mkdir(parents=True, exist_ok=True)
+
+        for file_bytes in media_bytes:
+
+            hash_ = await get_hash(file_bytes)
+            file = str((path_ / hash_).resolve())
+
+            async with aiofiles.open(str(file) + self.file_format, "wb") as f:
+                await f.write(file_bytes)
+
+            async with aiofiles.open(str(file) + ".txt", "w", encoding="utf-8") as f:
+                await f.write(str(dict(self.__dict__)))
+
+            logger.info(f"文件已保存，路径: {file}")

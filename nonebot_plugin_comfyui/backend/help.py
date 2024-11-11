@@ -33,19 +33,22 @@ class ComfyuiHelp:
 
         return len(self.workflows_name)
 
-    async def get_md(self, search) -> Union[str, Any[UniMessage]]:
+    async def get_md(self, search) -> Union[str, UniMessage]:
 
         len_ = await self.get_reflex_json(search)
 
         head = '''
 # ComfyUI 工作流
 ## 工作流列表
-|    工作流名称     | 是否需要输入图片 | 输入图片数量 |   覆写的设置值    |备注|
-|:---------------:|:--------------:|:--------------:|:--------------:|:--:|
+|编号|    工作流名称     | 是否需要输入图片 | 输入图片数量 |   覆写的设置值    |备注|
+|:-:|:---------------:|:--------------:|:--------------:|:--------------:|:--:|
 '''
         build_form = head + ''
+        index = 0
 
         for wf, name in zip(self.workflows_reflex, self.workflows_name):
+
+            index += 1
 
             is_loaded_image = wf.get('load_image', None)
             load_image = wf.get('load_image', None)
@@ -60,7 +63,7 @@ class ComfyuiHelp:
                 for key, value in override.items():
                     override_msg += f'{key}: {value}'
 
-            build_form += f'|  {name}   |  {"是" if is_loaded_image else "否"}  |{image_count}张|  {override_msg}   |{note}|\n'
+            build_form += f'|{index}|  {name}   |  {"是" if is_loaded_image else "否"}  |{image_count}张|  {override_msg}   |{note}|\n'
 
             if len_ == 1:
 

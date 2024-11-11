@@ -29,11 +29,13 @@ comfyui_parser.add_argument("-n", "--n", dest="denoise_strength", type=float, he
 comfyui_parser.add_argument("-height", dest="height", type=int, help="Height")
 comfyui_parser.add_argument("-width", dest="width", type=int, help="Width")
 comfyui_parser.add_argument("-v", dest="video", action="store_true", help="Video output flag")
+comfyui_parser.add_argument("-o", dest="override", action="store_true", help="不使用覆写")
 comfyui_parser.add_argument("-wf", "--work-flows", dest="work_flows", type=str, help="Workflows")
 comfyui_parser.add_argument("-sp", "--sampler", dest="sampler", type=str, help="采样器")
 comfyui_parser.add_argument("-sch", "--scheduler", dest="scheduler", type=str, help="调度器")
 comfyui_parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, help="每批数量")
 comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模型")
+comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
 
 
 __plugin_meta__ = PluginMetadata(
@@ -86,6 +88,8 @@ help_text = '''
 - `-sch` 调度器
 - `-b` 每批数量
 - `-m` 模型
+- `-o` 不使用内置提示词
+- '-be' 选择指定的后端索引/url
 
 ---
 
@@ -104,7 +108,7 @@ prompt a girl, a beautiful girl, masterpiece -u badhand
 ```
 
 **By:** nonebot-plugin-comfyui  
-**DiaoDaiaChan/nonebot-plugin-comfyui**
+**github.com/DiaoDaiaChan/nonebot-plugin-comfyui**
 '''
 
 
