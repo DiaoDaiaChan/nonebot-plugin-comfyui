@@ -7,4 +7,4 @@ __pycache__/
 pdm.lock
 dist/
 
-./comfyui_work_flows/output
+/comfyui_work_flows/output/
