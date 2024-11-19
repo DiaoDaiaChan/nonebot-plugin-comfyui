@@ -2,6 +2,6 @@
   "negative_prompt": {"7": {"override": {"text": "append_negative_prompt"}}},
   "sampler": 52,
   "image_size": 53,
-  "output": 72,
-  "prompt": {"83": {"override": {"text": "append_prompt"}}}
+  "prompt": {"83": {"override": {"text": "append_prompt"}}},
+  "output": "72"
   }

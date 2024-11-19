@@ -10,7 +10,7 @@
   },
   "7": {
     "inputs": {
-      "text": "nsfw, lowres, bad, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]",
+      "text": ",bad hands, worst quality, low quality, bad quality, multiple views, 4koma, comic, jpeg artifacts, monochrome, sepia, greyscale, flat color, pale color, muted color, low contrast, bad anatomy, picture frame, english text, signature, watermark, logo, patreon username, web address, artist name,furry,",
       "clip": [
         "4",
         1
@@ -93,7 +93,7 @@
   },
   "83": {
     "inputs": {
-      "text": " ,(artist:umehara sei:1),(artist:onineko:1),(artist:na kyo:1),(artist:deep (deep4946)),(artist:qianqianjie:1),(artist:shinyo yukino:1),(artist:rurudo:1), (artist:torino aqua:0.4),best quality, amazing quality, very aesthetic, absurdres,",
+      "text": ",(artist:colon br:0.2),(artist:ikeuchi tanum:0.4),(artist:dsmile:0.4), (artist:darkkanan:0.4),(artist:sencha (senta 10):0.4),(artist:Miaooooo:0.4),(artist:taya oco:0.4)|(artist:torino aqua:0.2),(artist:momoko (momopoco):0.6)|(artist:maccha_(mochancc):0.6),(artist:arutera:0.4),(artist:atdan:0.2),(artist:cola (gotouryouta):0.4),(artist:chap sal !:0.4),(artist:miyu (miy u1308):0.6),",
       "clip": [
         "4",
         1

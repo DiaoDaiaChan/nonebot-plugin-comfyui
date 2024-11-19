@@ -1,83 +1,7 @@
 {
-  "4": {
+  "3": {
     "inputs": {
-      "ckpt_name": "models\\DiaoDaiaPony - 100 Artists - testing.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Load Checkpoint"
-    }
-  },
-  "6": {
-    "inputs": {
-      "text": [
-        "50",
-        0
-      ],
-      "clip": [
-        "4",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (TIPO Prompt)"
-    }
-  },
-  "7": {
-    "inputs": {
-      "text": "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand",
-      "clip": [
-        "4",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Negative Prompt)"
-    }
-  },
-  "8": {
-    "inputs": {
-      "samples": [
-        "52",
-        0
-      ],
-      "vae": [
-        "4",
-        2
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
-    }
-  },
-  "50": {
-    "inputs": {
-      "tags": "\n\nscore_9,score_8_up,score_7_up,score_anime,amazing quality,very aesthetic,absurdres",
-      "nl_prompt": "An illustration of",
-      "ban_tags": "text, censor, speech, say, illustrations, doll",
-      "tipo_model": "KBlueLeaf/TIPO-500M",
-      "format": "<|special|>, \n<|characters|>, <|copyrights|>, \n<|artist|>, \n\n<|general|>,\n\n<|extended|>.\n\n<|quality|>, <|meta|>, <|rating|>",
-      "width": 1024,
-      "height": 1024,
-      "temperature": 0.5,
-      "top_p": 0.95,
-      "min_p": 0.05,
-      "top_k": 80,
-      "tag_length": "long",
-      "nl_length": "long",
-      "seed": 1763
-    },
-    "class_type": "TIPO",
-    "_meta": {
-      "title": "TIPO"
-    }
-  },
-  "52": {
-    "inputs": {
-      "seed": 11451,
+      "seed": 156680208700286,
       "steps": 20,
       "cfg": 8,
       "sampler_name": "euler",
@@ -96,7 +20,7 @@
         0
       ],
       "latent_image": [
-        "53",
+        "5",
         0
       ]
     },
@@ -105,10 +29,19 @@
       "title": "KSampler"
     }
   },
-  "53": {
+  "4": {
     "inputs": {
-      "width": 1152,
-      "height": 1536,
+      "ckpt_name": "0.3(last-000005 + 0.6(diaoxl_new3.fp16 - diaopcm.fp16)) + 0.7(DiaoDaiaPony - 100 Artists - testing).safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "5": {
+    "inputs": {
+      "width": 512,
+      "height": 512,
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",
@@ -116,7 +49,49 @@
       "title": "Empty Latent Image"
     }
   },
-  "72": {
+  "6": {
+    "inputs": {
+      "text": "beautiful scenery nature glass bottle landscape, , purple galaxy bottle,",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "text, watermark",
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "9": {
     "inputs": {
       "filename_prefix": "ComfyUI",
       "images": [

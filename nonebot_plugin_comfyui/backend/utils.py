@@ -35,7 +35,7 @@ async def set_res(new_img: Image) -> str:
             ratio = width / height
             height: float = max_res / pow(ratio, 0.5)
             width: float = height * ratio
-        logger.info(f"图片尺寸已调整至{round(width)}x{round(height)}")
+        logger.info(f"审核图片尺寸已调整至{round(width)}x{round(height)}")
         new_img.resize((round(width), round(height)))
     img_bytes = BytesIO()
     new_img.save(img_bytes, format="JPEG")

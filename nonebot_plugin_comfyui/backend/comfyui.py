@@ -86,7 +86,9 @@ class ComfyuiUI:
             batch_size: Optional[int] = None,
             model: Optional[str] = None,
             override: Optional[bool] = False,
+            override_ng: Optional[bool] = False,
             backend: Optional[str] = None,
+            batch_count: Optional[int] = None,
             **kwargs
     ):
 
@@ -129,6 +131,24 @@ class ComfyuiUI:
         }
         }
 
+        # ComfyuiAPI相关
+        if work_flows is None:
+            work_flows = config.comfyui_default_workflows
+
+        for wf in self.update_wf(index=work_flows if work_flows.strip().isdigit() else None):
+
+            if len(self.work_flows_init) == 1:
+                self.work_flows = self.work_flows_init[0]
+
+            else:
+                if work_flows in wf:
+                    self.work_flows = wf
+                    break
+                else:
+                    self.work_flows = "txt2img"
+
+        logger.info(f"选择工作流: {self.work_flows}")
+
         # 必要参数
         self.nb_event = nb_event
         self.args = args
@@ -160,26 +180,12 @@ class ComfyuiUI:
         )
 
         self.batch_size: int = batch_size or 1
+        self.batch_count: int = batch_count or 1
+        self.total_count: int = self.batch_count * self.batch_size
         self.model: str = model or config.comfyui_model
         self.override = override
+        self.override_ng = override_ng
 
-        # ComfyuiAPI相关
-        if work_flows is None:
-            work_flows = config.comfyui_default_workflows
-
-        for wf in self.update_wf(index=work_flows if work_flows.strip().isdigit() else None):
-
-            if len(self.work_flows_init) == 1:
-                self.work_flows = self.work_flows_init[0]
-
-            else:
-                if work_flows in wf:
-                    self.work_flows = wf
-                    break
-                else:
-                    self.work_flows = "txt2img"
-
-        logger.info(f"选择工作流: {self.work_flows}")
         self.comfyui_api_json = None
         self.reflex_json = None
         self.override_backend_setting_dict: dict = {}
@@ -202,7 +208,7 @@ class ComfyuiUI:
         self.init_images: list[bytes] = []
         self.media_url: list = []
         self.unimessage: UniMessage = UniMessage.text("")
-        self.multimedia_unimsg: UniMessage = None
+        self.multimedia_unimsg: UniMessage or None = None
         self.media_type: str = 'video' if video else 'image'
         self.file_format: str = '.png'
 
@@ -242,7 +248,7 @@ class ComfyuiUI:
 
         return width, height
 
-    def update_api_json(self, init_images):
+    async def update_api_json(self, init_images):
         api_json = copy.deepcopy(self.comfyui_api_json)
         raw_api_json = copy.deepcopy(self.comfyui_api_json)
 
@@ -294,10 +300,9 @@ class ComfyuiUI:
             "get_text",
             "upscale",
             'image'
-
         }
         __ALL_SUPPORT_NODE__ = set(update_mapping.keys())
-        other_action = ("override", "note", "presets", "media")
+        other_action = {"override", "note", "presets", "media", "command"}
 
         for item, node_id in self.reflex_json.items():
 
@@ -339,7 +344,7 @@ class ComfyuiUI:
                                     prompt = self.prompt + prompt
                                     api_json[node]['inputs'][key] = prompt
 
-                                elif override_action == "append_negative_prompt" and self.override is False:
+                                elif override_action == "append_negative_prompt" and self.override_ng is False:
                                     prompt = raw_api_json[node]['inputs'][key]
                                     prompt = self.negative_prompt + prompt
                                     api_json[node]['inputs'][key] = prompt
@@ -347,7 +352,7 @@ class ComfyuiUI:
                                 elif "upscale" in override_action:
                                     scale = 1.5
                                     if "_" in override_action:
-                                        scale = override_action.split("_")[1]
+                                        scale = float(override_action.split("_")[1])
 
                                     if key == 'width':
                                         res = self.width
@@ -380,7 +385,7 @@ class ComfyuiUI:
                             if update_dict and item in update_mapping:
                                 api_json[node]['inputs'].update(update_mapping[item])
 
-        self.compare_dicts(api_json, self.comfyui_api_json)
+        await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
         self.comfyui_api_json = api_json
 
     async def heart_beat(self, id_):
@@ -404,6 +409,8 @@ class ComfyuiUI:
                         else:
                             url = f"{self.backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
 
+                        self.media_url.append(url)
+
                 elif self.media_type == 'video':
                     for img in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['gifs']:
                         filename = img['filename']
@@ -414,10 +421,14 @@ class ComfyuiUI:
                         else:
                             url = f"{self.backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
 
+                        self.media_url.append(url)
+
                 elif self.media_type == 'audio':
                     pass
 
-                self.media_url.append(url)
+                elif self.media_type == 'text':
+                    for text in response[id_]['outputs'][str(self.reflex_json.get('output', 9))]['text']:
+                        self.unimessage += UniMessage.text(text)
 
             except KeyError:
                 logger.error(f"输出节点错误!请检查reflex json中的设置!!!")
@@ -464,6 +475,7 @@ class ComfyuiUI:
     async def posting(self):
 
         await self.get_workflows_json()
+
         if self.reflex_json.get('override', None):
             self.override_backend_setting_dict = self.reflex_json['override']
             await self.override_backend_setting_func()
@@ -475,27 +487,26 @@ class ComfyuiUI:
                 resp = await self.upload_image(image, uuid.uuid4().hex)
                 upload_img_resp_list.append(resp)
 
-        self.update_api_json(upload_img_resp_list)
+        await self.update_api_json(upload_img_resp_list)
 
         input_ = {
             "client_id": self.client_id,
             "prompt": self.comfyui_api_json
         }
 
-        respone = await self.http_request(
+        respond = await self.http_request(
             method="POST",
             target_url=f"{self.backend_url}/prompt",
             content=json.dumps(input_)
         )
 
-        if respone.get("error", None):
-            logger.error(respone)
-            raise RuntimeError(respone["status_code"])
+        if respond.get("error", None):
+            logger.error(respond)
+            raise RuntimeError(respond["status_code"])
 
-        self.task_id = respone['prompt_id']
+        self.task_id = respond['prompt_id']
 
         await self.heart_beat(self.task_id)
-        await self.download_img()
 
     @staticmethod
     async def http_request(
@@ -561,15 +572,24 @@ class ComfyuiUI:
     def list_to_str(tags_list):
         tags: str = "".join([i+" " for i in tags_list if isinstance(i,str)])
         tags = re.sub("\[CQ[^\s]*?]", "", tags)
+        tags = tags.replace("\\\\", "\\")
         tags = tags.split(",")
         return ','.join(tags)
 
     @staticmethod
-    def compare_dicts(dict1, dict2):
+    async def compare_dicts(dict1, dict2):
 
         modified_keys = {k for k in dict1.keys() & dict2.keys() if dict1[k] != dict2[k]}
+        build_info = "节点映射情况: \n"
         for key in modified_keys:
-            logger.info(f"API请求值映射: {key} -> {dict1[key]} -> {dict2[key]}")
+            build_info += f"节点ID: {key} -> \n"
+            for (key1, value1), (key2, value2) in zip(dict1[key].items(), dict2[key].items()):
+                if value1 == value2:
+                    pass
+                else:
+                    build_info += f"新的值: {key1} -> {value1}\n旧的值: {key2} -> {value2}\n"
+
+        logger.info(build_info)
 
     async def override_backend_setting_func(self):
         """
@@ -589,6 +609,8 @@ class ComfyuiUI:
 
     async def send_nsfw_image_to_private(self, image):
 
+        from nonebot.adapters.onebot.v11.exception import ActionFailed
+
         try:
             if 'OneBot V11' in self.adapters:
                 from nonebot.adapters.onebot.v11 import MessageSegment
@@ -596,9 +618,11 @@ class ComfyuiUI:
             else:
                 raise NotImplementedError("暂不支持其他机器人")
 
-        except (NotImplementedError or Exception) as e:
+        except (NotImplementedError or ActionFailed or Exception) as e:
             if isinstance(NotImplementedError, e):
                 logger.warning("发送失败, 暂不支持其他机器人")
+            elif isinstance(ActionFailed, e):
+                await UniMessage.text('图图私聊发送失败了!是不是没加机器人好友...').send()
             else:
                 await UniMessage.text('图图私聊发送失败了!是不是没加机器人好友...').send()
 

@@ -9,6 +9,7 @@ from typing import Union, Any
 
 from nonebot_plugin_alconna import UniMessage
 
+
 class ComfyuiHelp:
 
     def __init__(self):
@@ -16,32 +17,38 @@ class ComfyuiHelp:
         self.workflows_reflex: list[dict] = []
         self.workflows_name: list[str] = []
 
-    async def get_reflex_json(self, search=None):
+    @staticmethod
+    async def get_reflex_json(search=None):
+
+        workflows_reflex = []
+        workflows_name = []
 
         if isinstance(search, str):
             search = search
         else:
             search = None
 
-        for filename in os.listdir(self.comfyui_workflows_dir):
+        for filename in os.listdir(config.comfyui_workflows_dir):
             if (search in filename and filename.endswith('_reflex.json')) if search else filename.endswith('_reflex.json'):
-                file_path = os.path.join(self.comfyui_workflows_dir, filename)
+                file_path = os.path.join(config.comfyui_workflows_dir, filename)
                 async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
                     content = await f.read()
-                    self.workflows_reflex.append(json.loads(content))
-                    self.workflows_name.append(filename.replace('_reflex.json', ''))
+                    workflows_reflex.append(json.loads(content))
+                    workflows_name.append(filename.replace('_reflex.json', ''))
 
-        return len(self.workflows_name)
+        return len(workflows_name), workflows_reflex, workflows_name
 
     async def get_md(self, search) -> Union[str, UniMessage]:
 
-        len_ = await self.get_reflex_json(search)
+        len_, content, wf_name = await self.get_reflex_json(search)
+        self.workflows_reflex = content
+        self.workflows_name = wf_name
 
         head = '''
 # ComfyUI 工作流
 ## 工作流列表
-|编号|    工作流名称     | 是否需要输入图片 | 输入图片数量 |   覆写的设置值    |备注|
-|:-:|:---------------:|:--------------:|:--------------:|:--------------:|:--:|
+|编号|输出类型|    工作流名称     | 是否需要输入图片 | 输入图片数量 |   覆写的设置值    |注册的命令|备注|
+|:-:|:-:|:---------------:|:--------------:|:--------------:|:--------------:|:-:|:--:|
 '''
         build_form = head + ''
         index = 0
@@ -61,9 +68,12 @@ class ComfyuiHelp:
 
             if override:
                 for key, value in override.items():
-                    override_msg += f'{key}: {value}'
+                    override_msg += f'{key}: {value}<br>'
 
-            build_form += f'|{index}|  {name}   |  {"是" if is_loaded_image else "否"}  |{image_count}张|  {override_msg}   |{note}|\n'
+            media_type = wf.get('media', "image")
+            reg_command = wf.get('command', None)
+
+            build_form += f'|{index}|{media_type}|  {name}   |  {"是" if is_loaded_image else "否"}  |{image_count}张|  {override_msg}   |{reg_command if reg_command else ""}|{note}|\n'
 
             if len_ == 1:
 
