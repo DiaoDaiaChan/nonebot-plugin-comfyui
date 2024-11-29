@@ -9,6 +9,7 @@ import aiofiles
 import aiohttp
 import asyncio
 import hashlib
+import ssl
 
 import nonebot
 from tqdm import tqdm
@@ -18,12 +19,26 @@ from typing import Union, Optional
 from argparse import Namespace
 from pathlib import Path
 from datetime import datetime
+from aiohttp import ClientSession, TCPConnector
 
 from ..config import config
 from ..handler import UniMessage
 from .utils import pic_audit_standalone, run_later
 
 MAX_SEED = 2 ** 32
+OTHER_ACTION = {"override", "note", "presets", "media", "command", "reg_args"}
+
+
+class AllComfyuiTask:
+
+    all_task_dict: dict = {}
+    user_task: dict = {}
+
+    def __init__(self, user_id: str, event: Event):
+
+        self.user_id = user_id
+        self.event = event
+        self.task_id = None
 
 
 def get_and_filter_work_flows(search=None, index=None) -> list:
@@ -131,6 +146,8 @@ class ComfyuiUI:
         }
         }
 
+        self.work_flows = None
+
         # ComfyuiAPI相关
         if work_flows is None:
             work_flows = config.comfyui_default_workflows
@@ -208,7 +225,7 @@ class ComfyuiUI:
         self.init_images: list[bytes] = []
         self.media_url: list = []
         self.unimessage: UniMessage = UniMessage.text("")
-        self.multimedia_unimsg: UniMessage or None = None
+        self.multimedia_unimsg: UniMessage | None = None
         self.media_type: str = 'video' if video else 'image'
         self.file_format: str = '.png'
 
@@ -277,7 +294,8 @@ class ComfyuiUI:
                 "text": self.negative_prompt
             },
             "checkpoint": {
-                "ckpt_name": self.model if self.model else None
+                "ckpt_name": self.model if self.model else None,
+                "unet_name": self.model if self.model else None
             },
             "load_image": {
                 "image": init_images[0]['name'] if self.init_images else None
@@ -302,14 +320,10 @@ class ComfyuiUI:
             'image'
         }
         __ALL_SUPPORT_NODE__ = set(update_mapping.keys())
-        other_action = {"override", "note", "presets", "media", "command"}
 
         for item, node_id in self.reflex_json.items():
 
-            if item == "media":
-                self.media_type = node_id
-
-            if node_id and item not in other_action:
+            if node_id and item not in OTHER_ACTION:
 
                 org_node_id = node_id
 
@@ -384,6 +398,34 @@ class ComfyuiUI:
                             update_dict = api_json.get(node, None)
                             if update_dict and item in update_mapping:
                                 api_json[node]['inputs'].update(update_mapping[item])
+
+            else:
+                if item == "media":
+                    self.media_type = node_id
+
+                elif item == "reg_args":
+                    reg_args = node_id
+                    for node, item_ in reg_args.items():
+                        for arg in item_["args"]:
+
+                            args_dict = vars(self.args)
+                            org_key = arg["dest"]
+                            args_key = None
+
+                            if "dest_to_value" in arg:
+                                json_key = arg["dest_to_value"][arg["dest"]]
+                                args_key = list(arg["dest_to_value"].keys())[0]
+
+                            else:
+                                json_key = arg['dest']
+
+                            update_node = {}
+
+                            if hasattr(self.args, org_key):
+                                get_value = args_key if args_key else json_key
+                                update_node[json_key] = args_dict[get_value]
+
+                            api_json[node]['inputs'].update(update_node)
 
         await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
         self.comfyui_api_json = api_json
@@ -502,9 +544,15 @@ class ComfyuiUI:
 
         if respond.get("error", None):
             logger.error(respond)
-            raise RuntimeError(respond["status_code"])
+            self.unimessage += UniMessage.text(f"生成失败: {respond['error']}")
+            await self.unimessage.finish()
+            # raise RuntimeError(respond["status_code"])
 
         self.task_id = respond['prompt_id']
+
+        await run_later(
+            UniMessage.text(f"已选择工作流: {self.work_flows}, 正在生成, 请稍等. 任务id: {self.task_id}").send(), 1
+        )
 
         await self.heart_beat(self.task_id)
 
@@ -521,7 +569,17 @@ class ComfyuiUI:
             proxy=False
     ) -> Union[dict, bytes]:
 
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+        global_ssl_context = ssl.create_default_context()
+        global_ssl_context.set_ciphers('DEFAULT')
+        global_ssl_context.options |= ssl.OP_NO_SSLv2
+        global_ssl_context.options |= ssl.OP_NO_SSLv3
+        global_ssl_context.options |= ssl.OP_NO_TLSv1
+        global_ssl_context.options |= ssl.OP_NO_TLSv1_1
+        global_ssl_context.options |= ssl.OP_NO_COMPRESSION
+
+        connector = TCPConnector(ssl=global_ssl_context)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=timeout)) as session:
             async with session.request(
                     method,
                     target_url,
@@ -618,7 +676,7 @@ class ComfyuiUI:
             else:
                 raise NotImplementedError("暂不支持其他机器人")
 
-        except (NotImplementedError or ActionFailed or Exception) as e:
+        except (NotImplementedError, ActionFailed, Exception) as e:
             if isinstance(NotImplementedError, e):
                 logger.warning("发送失败, 暂不支持其他机器人")
             elif isinstance(ActionFailed, e):
@@ -678,7 +736,7 @@ class ComfyuiUI:
             backend_dict = {}
             for i, backend_url in zip(resp, config.comfyui_url_list):
                 if isinstance(i, Exception):
-                    logger.info(f"后端 {backend_url} 掉线")
+                    logger.warning(f"后端 {backend_url} 掉线")
 
                 else:
                     backend_dict[backend_url] = i
@@ -702,6 +760,18 @@ class ComfyuiUI:
             logger.info("未设置多后端功能, 跳过选择")
 
         return
+
+    def __str__(self):
+
+        format_value = [
+            "nb_event", "args", "bot", "prompt", "negative_prompt", "accept_ratio",
+            "seed", "steps", "cfg_scale", "denoise_strength", "height", "width",
+            "video", "work_flows", "sampler", "scheduler", "batch_size", "model",
+            "override", "override_ng", "backend", "batch_count"
+        ]
+
+        selected = {key: value for key, value in self.__dict__.items() if key in format_value}
+        return str(selected)
 
     async def save_media(self, media_bytes: list[bytes]):
 
@@ -727,6 +797,6 @@ class ComfyuiUI:
                 await f.write(file_bytes)
 
             async with aiofiles.open(str(file) + ".txt", "w", encoding="utf-8") as f:
-                await f.write(str(dict(self.__dict__)))
+                await f.write(self.__str__())
 
             logger.info(f"文件已保存，路径: {file}")

@@ -1,5 +1,7 @@
 import base64
 import json
+import random
+import nonebot
 
 import aiohttp
 
@@ -9,6 +11,7 @@ from ..config import config
 from io import BytesIO
 from PIL import Image
 from asyncio import get_running_loop
+from nonebot_plugin_alconna import UniMessage
 
 async def run_later(func, delay=1):
     loop = get_running_loop()
@@ -106,3 +109,27 @@ async def pic_audit_standalone(
     if audit:
         return possibilities, message
     return message
+
+
+async def send_msg_and_revoke(message: UniMessage | str, reply_to=False, r=None):
+    if isinstance(message, str):
+        message = UniMessage(message)
+
+    async def main(message, reply_to, r):
+        if r:
+            await revoke_msg(r)
+        else:
+            r = await message.send(reply_to=reply_to)
+            await revoke_msg(r)
+        return
+
+    await run_later(main(message, reply_to, r), 2)
+
+
+async def revoke_msg(r, time=None, bot=None):
+    if isinstance(r, str):
+        if bot is None:
+            bot = nonebot.get_bot()
+        await bot.delete_msg(message_id=r)
+    else:
+        await r.recall(delay=time or random.randint(60, 100), index=0)

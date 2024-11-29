@@ -36,15 +36,37 @@ comfyui_parser.add_argument("-on", dest="override_ng", action="store_true", help
 comfyui_parser.add_argument("-wf", "--work-flows", dest="work_flows", type=str, help="Workflows")
 comfyui_parser.add_argument("-sp", "--sampler", dest="sampler", type=str, help="采样器")
 comfyui_parser.add_argument("-sch", "--scheduler", dest="scheduler", type=str, help="调度器")
-comfyui_parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, help="每批数量")
-comfyui_parser.add_argument("-bc", "--batch_count", dest="batch_count", type=int, help="每批数量")
+comfyui_parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, help="每批数量", default=1)
+comfyui_parser.add_argument("-bc", "--batch_count", dest="batch_count", type=int, help="批数", default=1)
 comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模型")
 comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
 
 
-async def rebuild_parser(wf):
+async def rebuild_parser(wf, reg_args: dict | None =None):
 
     comfyui_parser = ArgumentParser()
+
+    if reg_args:
+
+        type_mapping = {
+            "int": int,
+            "str": str,
+            "float": float,
+            "bool": bool,
+            "list": list,
+            "dict": dict,
+        }
+
+        for node_arg in list(reg_args.values()):
+            for arg in node_arg['args']:
+                if arg["type"] in type_mapping:
+                    arg["type"] = type_mapping[arg["type"]]
+                    flags = arg["name_or_flags"]
+                    del arg["name_or_flags"]
+                    if "dest_to_value" in arg:
+                        del arg["dest_to_value"]
+                    comfyui_parser.add_argument(*flags, **arg)
+                    logger.info(f"成功注册命令参数: {arg['dest']}")
 
     comfyui_parser.add_argument("prompt", nargs="*", help="标签", type=str)
     comfyui_parser.add_argument("-u", "-U", nargs="*", dest="negative_prompt", type=str, help="Negative prompt")
@@ -61,8 +83,8 @@ async def rebuild_parser(wf):
     comfyui_parser.add_argument("-wf", "--work-flows", dest="work_flows", type=str, help="Workflows", default=wf)
     comfyui_parser.add_argument("-sp", "--sampler", dest="sampler", type=str, help="采样器")
     comfyui_parser.add_argument("-sch", "--scheduler", dest="scheduler", type=str, help="调度器")
-    comfyui_parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, help="每批数量")
-    comfyui_parser.add_argument("-bc", "--batch_count", dest="batch_count", type=int, help="每批数量")
+    comfyui_parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, help="每批数量", default=1)
+    comfyui_parser.add_argument("-bc", "--batch_count", dest="batch_count", type=int, help="每批数量", default=1)
     comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模型")
     comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
 
@@ -104,7 +126,15 @@ async def set_command():
 
     for wf, wf_name in zip(content, wf_name):
         if "command" in wf:
-            comfyui_parser = await rebuild_parser(wf_name)
+            reg_args = None
+
+            print(wf)
+
+            if "reg_args" in wf:
+                reg_args = wf["reg_args"]
+
+
+            comfyui_parser = await rebuild_parser(wf_name, reg_args)
             on_shell_command(
                 wf["command"],
                 parser=comfyui_parser,
@@ -183,7 +213,7 @@ async def _():
 async def _(search):
 
     md_, msg = await ComfyuiHelp().get_md(search)
-    img = await md_to_pic(md=md_, width=1500)
+    img = await md_to_pic(md=md_, width=2000)
 
     msg = UniMessage.image(raw=img) + msg
     await msg.finish()

@@ -18,27 +18,55 @@ class ComfyuiHelp:
         self.workflows_name: list[str] = []
 
     @staticmethod
-    async def get_reflex_json(search=None):
+    async def get_reg_args(wf):
+        resp_text = ''
+        if wf is None:
+            return None
+        else:
+            for key, value in wf.items():
+                for arg in value['args']:
+                    resp_text += f"注册的参数: {arg['name_or_flags'][0]}, 类型: {arg['type']}, 默认值: {arg['default']}, 描述: {arg['help']}<br>"
+
+            return resp_text
+
+    @staticmethod
+    async def get_reflex_json(search=None) -> (int, list, list):
 
         workflows_reflex = []
         workflows_name = []
 
         if isinstance(search, str):
+            if search.isdigit():
+                search = int(search)
             search = search
         else:
             search = None
-
         for filename in os.listdir(config.comfyui_workflows_dir):
-            if (search in filename and filename.endswith('_reflex.json')) if search else filename.endswith('_reflex.json'):
+            if filename.endswith('_reflex.json'):
                 file_path = os.path.join(config.comfyui_workflows_dir, filename)
                 async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
                     content = await f.read()
                     workflows_reflex.append(json.loads(content))
                     workflows_name.append(filename.replace('_reflex.json', ''))
 
+        if isinstance(search, int):
+            if 0 <= search < len(workflows_name):
+                return 1, [workflows_reflex[search-1]], [workflows_name[search-1]]
+            else:
+                raise IndexError(f"Index {search} out of range. Available indices: 0-{len(workflows_name) - 1}")
+
+        if isinstance(search, str):
+            matched_reflex = []
+            matched_names = []
+            for name, content in zip(workflows_name, workflows_reflex):
+                if search in name:
+                    matched_reflex.append(content)
+                    matched_names.append(name)
+            return len(matched_names), matched_reflex, matched_names
+
         return len(workflows_name), workflows_reflex, workflows_name
 
-    async def get_md(self, search) -> Union[str, UniMessage]:
+    async def get_md(self, search) -> (str, UniMessage):
 
         len_, content, wf_name = await self.get_reflex_json(search)
         self.workflows_reflex = content
@@ -47,8 +75,8 @@ class ComfyuiHelp:
         head = '''
 # ComfyUI 工作流
 ## 工作流列表
-|编号|输出类型|    工作流名称     | 是否需要输入图片 | 输入图片数量 |   覆写的设置值    |注册的命令|备注|
-|:-:|:-:|:---------------:|:--------------:|:--------------:|:--------------:|:-:|:--:|
+|编号|输出类型|    工作流名称     | 是否需要输入图片 | 输入图片数量 |   覆写的设置值    |注册的命令|注册的参数|备注|
+|:-:|:-:|:---------------:|:--------------:|:--------------:|:--------------:|:-:|:-:|:--:|
 '''
         build_form = head + ''
         index = 0
@@ -73,7 +101,9 @@ class ComfyuiHelp:
             media_type = wf.get('media', "image")
             reg_command = wf.get('command', None)
 
-            build_form += f'|{index}|{media_type}|  {name}   |  {"是" if is_loaded_image else "否"}  |{image_count}张|  {override_msg}   |{reg_command if reg_command else ""}|{note}|\n'
+            reg_args = await self.get_reg_args(wf.get('reg_args', None))
+
+            build_form += f'|{index}|{media_type}|  {name}   |  {"是" if is_loaded_image else "否"}  |{image_count}张|  {override_msg}   |{reg_command if reg_command else ""}|{reg_args}|{note}|\n'
 
             if len_ == 1:
 

@@ -51,8 +51,6 @@
 ![emb](../image/advance_node_control.png)  
 ```
 "prompt": {"50": {"override": {"text": "append_prompt"}}, "52": {"override": {"text": "append_prompt"}}}  # 覆写节点id为52的节点, 键为text, 操作为把api json文件中的text的值加到正面提示词中
-# 需要输入多个图片的工作流
-"image": {"50": {"override": {"image": "image_0"}}, "52": {"override": {"image": "image_1"}}}  # 为50节点选择第一张图片, 52节点第二张
 ```
 ****
 目前支持映射的节点如下 (有能力的小伙伴可以在./nonebot_plugin_comfyui/backend/comfyui.py第120行左右中添加更多节点)
@@ -73,6 +71,8 @@
 |      note       |   否    |                                                                      字符串, 备注节点, 会被加入到帮助菜单中                                                                      |                                                        备注                                                        |all|
 |      media      |   否    |                                                          字符串, 暂时支持image, video, text,"media": "video"                                                           |                                               字符串, 标记这条工作流的输出是什么类型                                               |all|
 |     command     |   否    |                                                              该工作流的名称会被注册为命令  ,"command": "tagger"                                                               |                  例如工作流名叫 tagger, 添加此覆写之后, 使用 tagger 命令即可自动调用此节点(可以不和工作流名称相同哦!你的命令不一定要是tagger!)                   |all|
+|      reg_args       |   否    |                                                                     为注册的命令添加参数  ,用法请看下面的例子                                                                      |                              例如在一个工作流中, 我想要控制一个参数, 但是默认的节点覆写没有, 我就可以使用这个来为命令添加自定义参数                              |all|
+
 ****
 ## 节点高级操作
 |   覆写操作    | 需要额外参数 |              参数说明               |         说明          |权限|
@@ -85,3 +85,242 @@
 |   image   |   是    |             image_0             |   适用于需要加载多个图片的工作流   |all|
 ****
 ## 还请你阅读仓库内的comfyui_work_flows来学习基本使用
+
+# 以下是详细讲解
+## [节点覆写](#节点覆写)
+## [高级节点覆写操作](#高级节点覆写操作)
+
+# 节点覆写
+
+## output
+- 本插件工作必须需要这个覆写对于图片来说, 可以是save image节点, 也可以是Preview Image节点, show text, video 节点也是可以的.
+```json
+{
+  "output": 9
+}
+```
+
+![emb](../image/output.png) 
+![emb](../image/output2.png) 
+
+## sampler
+- 采样器, 添加覆写之后就可以使用命令参数来覆写seed, steps, cfg, sampler_name, scheduler,denoise, 对应comfyui的KSampler节点
+```json
+{
+  "sampler": 9
+}
+```
+![emb](../image/sampler.png)
+![emb](../image/sampler2.png)
+## seed
+- 种子, 覆写节点中的 seed / noise_seed, 如果你发现画图一直是同一张, 考虑是不是没有覆写它
+```json
+{
+  "seed": 9
+}
+```
+![emb](../image/seed.png)
+![emb](../image/seed2.png)
+
+## image_size
+- 空的潜空间图像, 可以理解为图片最后的大小啦, 对应comfyui的EmptyLatentImage节点, 每批张数以及图片的高度和宽度由它决定
+```json
+{
+  "image_size": 4
+}
+```
+![emb](../image/image_size.png)
+![emb](../image/image_size2.png)
+
+## prompt / negative_prompt
+- 提示词, 其实可以是任何需要输入text的节点, negative_prompt同
+```json
+{
+  "prompt": 6
+}
+```
+![emb](../image/positive.png)
+![emb](../image/negative.png)
+![emb](../image/text.png)
+
+## checkpoint
+- 模型, 对应comfyui的LoadCheckpoint节点(个人用得比较少, 覆写了之后可以使用 -m 参数来指定模型!)
+```json
+{
+  "checkpoint": 45
+}
+```
+![emb](../image/ckpt.png)
+![emb](../image/ckpt2.png)
+
+## load_image
+- 加载图像节点, 对应comfyui的LoadImage节点
+```json
+{
+  "load_image": 17
+}
+```
+![emb](../image/uploadimg.png)
+![emb](../image/uploadimg2.png)
+
+## override
+
+- 覆写节点, 可以为工作流加载默认的参数, 例如
+- 支持的键prompt, negative_prompt, accept_ratio, seed, steps, cfg_scale, denoise_strength, height, width, video, work_flows, sampler, scheduler, batch_size, model
+```json
+{
+  "override": {
+    "cfg_scale": 7.5,
+    "height": 512,
+    "width": 768,
+    "steps": 35
+  }
+}
+```
+- 使用此工作流的时候, 会默认使用以上参数
+- 例: prompt nahida (默认cfg_scale 7.5, 图像高度 512, 图像宽度 768, 迭代步数 35)
+- 但是, 如果你手动指定, 优先级会更高, 例: prompt nahida --steps 28, 最后的参数是(cfg_scale 7.5, 图像高度 512, 图像宽度 768, 迭代步数 28)
+
+## note
+- 备注, 在查看工作流  命令中显示工作流的备注.
+```json
+{
+  "note": "这是一个基础工作流"
+}
+```
+
+## media
+- 标记此工作流的输出类型(是图像(image), 文字(text), 还是视频(video)), 不填写的话默认图片
+```json
+{
+  "media": "text"
+}
+```
+- 例如这个打标工作流
+
+![emb](../image/tagger.png)
+
+## command
+- 将此工作流注册为命令, 我们还是以上面的tagger工作流为例子
+- 看! 我们将tagger这个工作流注册为了"打标"命令, 我们使用"打标"命令的时候会自动调用这个工作流
+- 注册为命令之后, 其他的参数依然是生效的, 例如 "prompt --steps 28", "打标 --steps 28" 也是可以的(举个例子)
+```json
+{
+  "media": "text",
+  "output": 87,
+  "command": "打标",
+  "load_image": 85
+}
+```
+![emb](../image/command.png)
+![emb](../image/command2.png)
+
+## reg_args  (难点! 敲黑板!)
+- 我们将工作流注册为命令之后, 我们还可以将为注册的命令添加自定义参数哦!
+- 就比如接下来的例子, 一个flux fill扩图工作流
+``` yaml
+{
+  "load_image": 17,
+  "output": 9,
+  "command": "扩图",
+  "note": "flux-fill扩图, 建议扩图分辨率不要超过200",
+  # 重点关注下面! 
+  "reg_args": {
+    "44": {
+      "args":
+        [
+          {
+            "name_or_flags": ["-opl"],
+            "type": "int",
+            "dest": "left_unique",
+            "help": "向左扩图",
+            "default": 0,
+            "dest_to_value": {"left_unique": "left"}
+          },
+          {
+            "name_or_flags": ["-opr"],
+            "type": "int",
+            "dest": "right",
+            "help": "向右扩图",
+            "default": 0
+          },
+          {
+            "name_or_flags": ["-opt"],
+            "type": "int",
+            "dest": "top",
+            "help": "向上扩图",
+            "default": 128
+          },
+          {
+            "name_or_flags": ["-opb"],
+            "type": "int",
+            "dest": "bottom",
+            "help": "向下扩图",
+            "default": 128
+          },
+          {
+            "name_or_flags": ["-ft"],
+            "type": "int",
+            "dest": "feathering",
+            "help": "羽化半径",
+            "default": 30
+          }
+        ]
+    }
+  }
+}
+```
+- 请看图
+![emb](../image/reg.png)
+![emb](../image/reg2.png)
+
+
+# 高级节点覆写操作
+
+## append_prompt / append_negative_prompt
+- 将工作流中本身带有的提示词/负面提示词加入到绘图参数中
+```json
+{
+  "negative_prompt": {"7": {"override": {"text": "append_negative_prompt"}}},
+  "output": 85,
+  "prompt": {"83": {"override": {"text": "append_prompt"}}}
+}
+```
+```json
+{
+  "negative_prompt": {
+    "400": {"override": {"text": "append_negative_prompt"}}
+  },
+  "seed": [291, 127, 276],
+  "image_size": {
+    "395": {}, 
+    "292": {"override": {"width": "upscale_0.75", "height": "upscale_0.75"}}
+  },
+  "output": 458,
+  "prompt": {
+    "399": {"override": {"text": "append_prompt"}}
+  }
+}
+```
+![emb](../image/append_prompt.png)
+![emb](../image/append_prompt2.png)
+
+## image
+- 需要输入多个图片的工作流
+```json
+{
+  "image": {
+    "50": {
+      "override": {
+        "image": "image_0"
+      }
+    },
+    "52": {
+      "override": {
+        "image": "image_1"
+      }
+    }
+  }
+}
+```
+- 为50节点选择第一张图片, 52节点第二张

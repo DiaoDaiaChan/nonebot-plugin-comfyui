@@ -62,6 +62,8 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 |       comfyui_audit       | bool |  否  |                        True                        |                                   启动图片审核                                   |
 |    comfyui_audit_site     | str  |  否  |         "http://server.20020026.xyz:7865"          |                                   图片审核地址                                   |
 |    comfyui_save_image     | bool |  否  |                        True                        |                                是否保存媒体文件到本地                                 |
+|    comfyui_cd     | int  |  否  |                         20                         |                                    绘画cd                                    |
+|    comfyui_day_limit     | int |  否  |                         20                         |                              每天能画几次(重启机器人会重置)                              |
 
 
 ```env
@@ -76,6 +78,8 @@ comfyui_base_res = 1024
 comfyui_audit = True
 comfyui_audit_site = "http://server.20020026.xyz:7865"
 comfyui_save_image = True
+comfyui_cd = 20
+comfyui_day_limit = 20
 ```
 
 ## 关键!
@@ -113,6 +117,10 @@ comfyui_save_image = True
 - [x] 支持自定义命令
 
 ## 更新日志
+### 2024.11.29 0.4.4
+- 支持了自定义参数 见 [重要!插件基础芝士](./docs/md/node_control.md#reg_args-难点-敲黑板)
+- 查看工作流命令可以使用工作流的数字索引, 例如 查看工作流 1
+- 添加了CD和每日调用限制(见comfyui_cd, comfyui_day_limit)
 ### 2024.11.18 0.4
 - 支持输出文字
 - 支持自定义命令(例如我可以把一个工作流注册为一个命令, 通过它直接调用工作流), 请看[新的覆写节点](./docs/md/node_control.md#覆写节点名称)
