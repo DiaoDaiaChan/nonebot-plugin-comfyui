@@ -1,0 +1,7 @@
+{
+  "media": "text",
+  "output": 87,
+  "command": "打标",
+  "load_image": 85,
+  "note": "使用wd-tagger插件为图片打标"
+}

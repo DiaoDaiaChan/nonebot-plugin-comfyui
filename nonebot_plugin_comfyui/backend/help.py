@@ -103,9 +103,11 @@ class ComfyuiHelp:
 
             reg_args = await self.get_reg_args(wf.get('reg_args', None))
 
+            visible = wf.get('visible', True)
+
             build_form += f'|{index}|{media_type}|  {name}   |  {"是" if is_loaded_image else "否"}  |{image_count}张|  {override_msg}   |{reg_command if reg_command else ""}|{reg_args}|{note}|\n'
 
-            if len_ == 1:
+            if len_ == 1 and visible:
 
                 sc_image = await get_workflow_sc(name)
                 return build_form, UniMessage.image(raw=sc_image)

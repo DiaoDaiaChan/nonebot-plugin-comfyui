@@ -26,7 +26,7 @@ from ..handler import UniMessage
 from .utils import pic_audit_standalone, run_later
 
 MAX_SEED = 2 ** 32
-OTHER_ACTION = {"override", "note", "presets", "media", "command", "reg_args"}
+OTHER_ACTION = {"override", "note", "presets", "media", "command", "reg_args", "visible"}
 
 
 class AllComfyuiTask:
@@ -288,10 +288,12 @@ class ComfyuiUI:
                 "batch_size": self.batch_size
             },
             "prompt": {
-                "text": self.prompt
+                "text": self.prompt,
+                "Text": self.prompt
             },
             "negative_prompt": {
-                "text": self.negative_prompt
+                "text": self.negative_prompt,
+                "Text": self.negative_prompt
             },
             "checkpoint": {
                 "ckpt_name": self.model if self.model else None,
@@ -628,7 +630,7 @@ class ComfyuiUI:
 
     @staticmethod
     def list_to_str(tags_list):
-        tags: str = "".join([i+" " for i in tags_list if isinstance(i,str)])
+        tags: str = "".join([i+" " for i in tags_list if isinstance(i, str)])
         tags = re.sub("\[CQ[^\s]*?]", "", tags)
         tags = tags.replace("\\\\", "\\")
         tags = tags.split(",")

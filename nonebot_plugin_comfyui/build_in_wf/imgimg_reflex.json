@@ -1,0 +1,12 @@
+{
+  "sampler": 3,
+  "output": 9,
+  "prompt": 6,
+  "negative_prompt": 7,
+  "load_image": 10,
+  "command": "图生图",
+  "note": "内置图生图节点",
+  "override": {
+    "denoise_strength": 0.5
+  }
+  }

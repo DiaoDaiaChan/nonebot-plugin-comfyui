@@ -42,7 +42,7 @@ comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模�
 comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
 
 
-async def rebuild_parser(wf, reg_args: dict | None =None):
+async def rebuild_parser(wf, reg_args: dict | None = None):
 
     comfyui_parser = ArgumentParser()
 
@@ -132,7 +132,6 @@ async def set_command():
 
             if "reg_args" in wf:
                 reg_args = wf["reg_args"]
-
 
             comfyui_parser = await rebuild_parser(wf_name, reg_args)
             on_shell_command(
