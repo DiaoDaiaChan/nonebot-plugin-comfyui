@@ -14,7 +14,7 @@ from nonebot.plugin import require
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import UniMessage
 
-from .backend.comfyui import ComfyuiUI
+from .backend.comfyui import ComfyUI
 from .backend.utils import send_msg_and_revoke
 from .config import config
 
@@ -56,13 +56,13 @@ async def get_image(event) -> list[bytes]:
             url = url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
 
             logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
-            image_byte.append(await ComfyuiUI.http_request("GET", url, format=False))
+            image_byte.append(await ComfyUI.http_request("GET", url, format=False))
 
     return image_byte
 
 
 async def comfyui_generate(event, bot, args):
-    comfyui_instance = ComfyuiUI(**vars(args), nb_event=event, args=args, bot=bot)
+    comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot)
 
     image_byte = await get_image(event)
     comfyui_instance.init_images = image_byte
@@ -72,19 +72,16 @@ async def comfyui_generate(event, bot, args):
     for i in range(comfyui_instance.batch_count):
         comfyui_instance.seed += 1
         try:
-            await comfyui_instance.posting()
-        except:
+            await comfyui_instance.exec_generate()
+        except Exception as e:
             traceback.print_exc()
-            await UniMessage.text(f'任务{comfyui_instance.task_id}生成失败').send()
-
-    await comfyui_instance.download_img()
+            await send_msg_and_revoke(f'任务{comfyui_instance.task_id}生成失败, {e}')
 
     unimsg: UniMessage = comfyui_instance.unimessage
-    unimsg = UniMessage.text('队列完成') + unimsg
+    unimsg = UniMessage.text('队列完成\n') + unimsg
+    comfyui_instance.unimessage = unimsg
 
-    await unimsg.send(reply_to=True)
-    if comfyui_instance.multimedia_unimsg:
-        await comfyui_instance.multimedia_unimsg.send()
+    await comfyui_instance.send_all_msg()
 
 
 async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):

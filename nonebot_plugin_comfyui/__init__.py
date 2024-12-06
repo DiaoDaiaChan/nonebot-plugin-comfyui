@@ -16,8 +16,9 @@ from arclet.alconna import Alconna
 
 from .config import Config, config
 from .handler import comfyui_handler
-from .backend.comfyui import ComfyuiUI
+from .backend.comfyui import ComfyUI
 from .backend.help import ComfyuiHelp
+from .comfyui_queue import queue_handler
 
 comfyui_parser = ArgumentParser()
 
@@ -40,6 +41,16 @@ comfyui_parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, h
 comfyui_parser.add_argument("-bc", "--batch_count", dest="batch_count", type=int, help="批数", default=1)
 comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模型")
 comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
+
+queue_parsec = ArgumentParser()
+queue_parsec.add_argument("-t", "-追踪", "--track_task", dest="override", action="store_true", help="追踪我的任务")
+queue_parsec.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url", default=config.comfyui_url)
+queue_parsec.add_argument("-i", "--id", dest="task_id", type=str, help="需要查询的任务id")
+queue_parsec.add_argument("-v", "--view", dest="view", action="store_true", help="查看历史任务")
+
+queue_parsec.add_argument("-g", "--get", "-get", dest="get_task", type=str, help="需要获取具体信息的任务")
+queue_parsec.add_argument("-index", "--index", dest="index", type=str, help="需要获取的任务id范围", default="0-20")
+# queue_parsec.add_argument("-m", "--media", dest="media_type", type=str, help="需要获取具体信息的任务的输出类型", default='image')
 
 
 async def rebuild_parser(wf, reg_args: dict | None = None):
@@ -110,7 +121,16 @@ comfyui = on_shell_command(
     handlers=[comfyui_handler]
 )
 
-help_ = on_command("comfyui帮助", aliases={"帮助", "菜单", "help"}, priority=5, block=True)
+queue = on_shell_command(
+    "queue",
+    parser=queue_parsec,
+    priority=5,
+    block=True,
+    handlers=[queue_handler]
+)
+
+
+help_ = on_command("comfyui帮助", aliases={"帮助", "菜单", "help"}, priority=1, block=False)
 
 view_workflow = on_alconna(
     Alconna("查看工作流", Args["search?", str]),
@@ -187,6 +207,15 @@ async def build_help_text(reg_command):
 - 查看工作流 (查看所有工作流)
 - 查看工作流 flux (查看带有 flux 的工作流)
 
+---
+
+### 查询队列命令
+机器人执行队列的时候会返回任务id, 可以有以下用处
+---
+- `-be` 需要查看队列的后端索引或者URL, 例如 queue -get bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
+- `-i` 需要查询的任务id, 例如 queue -i bedadef6-269c-43f4-9be4-0e5b07061233
+- `-v` 查看历史任务, 配合-index使用, 例如 queue -v -index 0-20 (获取前20个任务id)
+- `-get` 后接任务的id, 例如, queue -get bedadef6-269c-43f4-9be4-0e5b07061233
 ---
 
 ### 示例

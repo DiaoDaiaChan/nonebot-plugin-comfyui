@@ -1,4 +1,4 @@
-# from .comfyui import ComfyuiUI
+# from .comfyui import ComfyUI
 import aiofiles
 import json
 import os

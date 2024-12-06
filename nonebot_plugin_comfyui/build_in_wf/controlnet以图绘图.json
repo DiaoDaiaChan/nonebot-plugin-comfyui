@@ -213,5 +213,17 @@
     "_meta": {
       "title": "Save Image"
     }
+  },
+  "32": {
+    "inputs": {
+      "images": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
   }
 }

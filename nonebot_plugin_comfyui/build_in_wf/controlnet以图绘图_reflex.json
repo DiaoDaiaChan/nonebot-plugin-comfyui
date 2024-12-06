@@ -1,5 +1,11 @@
 {
-  "output": 31,
+  "output": {
+    "image": [
+    31,
+    32
+    ],
+    "text": [33]
+  },
   "load_image": 1,
   "command": "以图绘图",
   "prompt": {"25": {"override": {"text": "append_prompt"}}},

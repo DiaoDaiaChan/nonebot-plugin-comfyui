@@ -27,6 +27,9 @@ class Config(BaseModel):
 config = get_plugin_config(Config)
 wf_dir = Path(config.comfyui_workflows_dir)
 
+if config.comfyui_multi_backend is False:
+    config.comfyui_url_list = [config.comfyui_url]
+
 if wf_dir.exists():
     logger.info(f"Comfyui工作流文件夹存在")
 else:
