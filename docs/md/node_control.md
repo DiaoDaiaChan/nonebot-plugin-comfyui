@@ -102,9 +102,22 @@
   "output": 9
 }
 ```
-
 ![emb](../image/output.png) 
 ![emb](../image/output2.png) 
+- 接下来介绍如何同时输出多种媒体(例如同时输出图片以及文字, 视频)
+```json
+{
+    "output": {
+    "image": [
+    31,
+    32
+    ],
+    "text": [33],
+    "video": [34]
+  }
+}
+```
+- 以上例子中, 31是save image节点, 32是preview image节点, 33是一个文本框, 34是video combine输出节点, 机器人会同时输出2张图片, 一段文字, 一段视频
 
 ## sampler
 - 采样器, 添加覆写之后就可以使用命令参数来覆写seed, steps, cfg, sampler_name, scheduler,denoise, 对应comfyui的KSampler节点

@@ -34,6 +34,7 @@ _⭐本插件适配多后端, 不过对于更多的多后端支持请转到https
 - [x] 具备图像审核, 防止涩涩
 - [x] 使用ALC实现跨平台
 - [x] 支持使用任务id来查询任务状态, 获取任务生成结果
+- [x] 支持一个工作流同时输出多种媒体(同时输出几张图片, 文字, 视频)
 
 ## 💿 安装
 
@@ -66,15 +67,15 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 |     comfyui_url_list      | list |  否  | ["http://127.0.0.1:8188", "http://127.0.0.1:8288"] |                               comfyui后端地址列表                                |
 |        comfyui_multi_backend        | bool |  否  |                       False                        |                                   多后端支持                                    |
 |       comfyui_model       | str  |  否  |                         ""                         |                              覆写加载模型节点的时候使用的模型                              |
-|   comfyui_workflows_dir   | str  |  是  |                   ./data/comfyui                   |                                comfyui工作流路径                                |
+|   comfyui_workflows_dir   | str  |  是  |                   ./data/comfyui                   |                     comfyui工作流路径(默认机器人路径/data/comfyui)                     |
 | comfyui_default_workflows | str  |  否  |                     "txt2img"                      | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
 |      comfyui_max_res      | int  |  否  |                        2048                        |                                 最大分辨率 ^ 2                                  |
 |     comfyui_base_res      | int  |  否  |                        1024                        |                                 基础分辨率 ^ 2                                  |
 |       comfyui_audit       | bool |  否  |                        True                        |                                   启动图片审核                                   |
 |    comfyui_audit_site     | str  |  否  |         "http://server.20020026.xyz:7865"          |                      图片审核地址(使用sd-webui的tagger插件的API)                       |
-|    comfyui_save_image     | bool |  否  |                        True                        |                                是否保存媒体文件到本地                                 |
+|    comfyui_save_image     | bool |  否  |                        True                        |                      是否保存媒体文件到本地(机器人路径/data/comfyui)                       |
 |    comfyui_cd     | int  |  否  |                         20                         |                                    绘画cd                                    |
-|    comfyui_day_limit     | int  |  否  |                         50                         |                              每天能画几次(重启机器人会重置)                              |
+|    comfyui_day_limit     | int  |  否  |                         50                         |                            每天能画几次/多少秒(重启机器人会重置)                            |
 |    comfyui_limit_as_seconds     | bool |  否  |                       False                        |                         使用画图所需要的时间来进行限制, 每天能调用夺少秒                          |
 
 
