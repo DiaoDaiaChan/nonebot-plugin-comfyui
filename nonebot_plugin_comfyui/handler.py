@@ -1,5 +1,6 @@
 
 import json
+import time
 import traceback
 from datetime import datetime
 
@@ -76,12 +77,38 @@ async def comfyui_generate(event, bot, args):
         except Exception as e:
             traceback.print_exc()
             await send_msg_and_revoke(f'任务{comfyui_instance.task_id}生成失败, {e}')
+            raise e
 
     unimsg: UniMessage = comfyui_instance.unimessage
-    unimsg = UniMessage.text('队列完成\n') + unimsg
+    unimsg = UniMessage.text(f'队列完成, 耗时:{comfyui_instance.spend_time}秒\n') + unimsg
     comfyui_instance.unimessage = unimsg
 
     await comfyui_instance.send_all_msg()
+
+
+async def limit(daily_key, counter) -> (str, bool):
+
+    if config.comfyui_limit_as_seconds:
+        if daily_key in daily_calls:
+            daily_calls[daily_key] += int(counter)
+        else:
+            daily_calls[daily_key] = 1
+
+        if daily_key in daily_calls and daily_calls[daily_key] >= MAX_DAILY_CALLS:
+            return f"今天你的使用时间已达上限，最多可以调用 {MAX_DAILY_CALLS} 秒。", True
+        else:
+            return f"你今天已经使用了{daily_calls[daily_key]}秒, 还能使用{MAX_DAILY_CALLS-daily_calls[daily_key]}秒", False
+    else:
+
+        if daily_key in daily_calls:
+            daily_calls[daily_key] += int(counter)
+        else:
+            daily_calls[daily_key] = 1
+
+        if daily_key in daily_calls and daily_calls[daily_key] >= MAX_DAILY_CALLS:
+            return f"今天你的调用次数已达上限，最多可以调用 {MAX_DAILY_CALLS} 次。", True
+        else:
+            return f"你今天已经调用了{daily_calls[daily_key]}次, 还能调用{MAX_DAILY_CALLS-daily_calls[daily_key]}次", False
 
 
 async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):
@@ -98,22 +125,25 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
 
     daily_key = f"{user_id}:{today_date}"
 
-    if daily_key in daily_calls:
-        daily_calls[daily_key] += int(args.batch_count*args.batch_size)
-    else:
-        daily_calls[daily_key] = 1
+    total_image = args.batch_count*args.batch_size
+    msg, reach_limit = await limit(daily_key, total_image)
+    await send_msg_and_revoke(msg, True)
 
-    if daily_key in daily_calls and daily_calls[daily_key] >= MAX_DAILY_CALLS:
-        await send_msg_and_revoke(f"今天你的调用次数已达上限，最多可以调用 {MAX_DAILY_CALLS} 次。")
+    if config.comfyui_limit_as_seconds:
+        daily_calls[daily_key] -= int(total_image)
+
+    if reach_limit:
         return
-    else:
-        await send_msg_and_revoke(f"你今天已经调用了{daily_calls[daily_key]}次, 还能调用{MAX_DAILY_CALLS-daily_calls[daily_key]}次")
 
     cd[user_id] = nowtime
+    start_time = time.time()
+    try:
+        await comfyui_generate(event, bot, args)
+        end_time = time.time()
 
-    await comfyui_generate(event, bot, args)
+        if config.comfyui_limit_as_seconds:
+            spend_time = end_time - start_time
+            await limit(daily_key, spend_time)
 
-
-
-
-
+    except:
+        daily_calls[daily_key] -= int(total_image)

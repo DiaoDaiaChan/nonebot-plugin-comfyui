@@ -2,14 +2,14 @@ import os
 
 from nonebot import Bot
 from nonebot.adapters import Event
-from nonebot.params import ShellCommandArgs
+from nonebot.params import ShellCommandArgs, Matcher
 from argparse import Namespace
 from itertools import islice
 
 from .backend import ComfyUI, ComfyuiTaskQueue
 
 
-async def queue_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):
+async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespace = ShellCommandArgs()):
 
     queue_instance = ComfyuiTaskQueue(bot, event, **vars(args))
     comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot)
@@ -32,7 +32,11 @@ async def queue_handler(bot: Bot, event: Event, args: Namespace = ShellCommandAr
 
     if args.get_task:
         task_status_dict = await queue_instance.get_task(args.get_task)
-        outputs = task_status_dict['outputs']
+
+        try:
+            outputs = task_status_dict['outputs']
+        except KeyError:
+            await matcher.finish(f"任务{args.get_task}不存在")
 
         backend_url = queue_instance.backend_url
 

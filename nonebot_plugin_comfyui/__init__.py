@@ -148,8 +148,6 @@ async def set_command():
         if "command" in wf:
             reg_args = None
 
-            print(wf)
-
             if "reg_args" in wf:
                 reg_args = wf["reg_args"]
 
@@ -176,7 +174,7 @@ async def build_help_text(reg_command):
 
 发送 `prompt [正面提示词]` 来进行一次最简单的生图。
 
-## 额外注册的指令
+## 额外注册的命令
 {"<br>".join(reg_command)}
 
 ### 其他参数
@@ -198,7 +196,7 @@ async def build_help_text(reg_command):
 - `-m` 模型
 - `-o` 不使用内置正面提示词
 - `-on` 不使用内置负面提示词
-- `-be` 选择指定的后端索引/url
+- `-be` 选择指定的后端索引(从0开始)/url
 
 ---
 
@@ -212,17 +210,17 @@ async def build_help_text(reg_command):
 ### 查询队列命令
 机器人执行队列的时候会返回任务id, 可以有以下用处
 ---
-- `-be` 需要查看队列的后端索引或者URL, 例如 queue -get bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
-- `-i` 需要查询的任务id, 例如 queue -i bedadef6-269c-43f4-9be4-0e5b07061233
-- `-v` 查看历史任务, 配合-index使用, 例如 queue -v -index 0-20 (获取前20个任务id)
-- `-get` 后接任务的id, 例如, queue -get bedadef6-269c-43f4-9be4-0e5b07061233
+- `-be` 需要查看队列的后端索引或者URL(不添加默认0), 例如 queue -get bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
+- `-i` 需要查询的任务id, 例如 queue -i bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
+- `-v` 查看历史任务, 配合-index使用, 例如 queue -v -index 0-20 -be 0 (获取前20个任务id)
+- `-get` 后接任务的id, 例如, queue -get bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
 ---
 
 ### 示例
 ```
 prompt a girl, a beautiful girl, masterpiece -u badhand   
 -ar 1:1 -s 123456 -steps 20 -cfg 7.5 -n 1   
--height 512 -width 512 -sp "DPM++ 2M Karras"
+-高 512 -宽 512 -sp "DPM++ 2M Karras" -be "http://127.0.0.1:8188" 
 ```
 
 **By:** nonebot-plugin-comfyui  
@@ -234,7 +232,12 @@ prompt a girl, a beautiful girl, masterpiece -u badhand
 @help_.handle()
 async def _():
     img = await md_to_pic(md=await build_help_text(reg_command))
-    await UniMessage.image(raw=img).finish()
+
+    msg = UniMessage.text('项目地址: github.com/DiaoDaiaChan/nonebot-plugin-comfyui')
+    img = UniMessage.image(raw=img)
+    msg = msg + img
+
+    await msg.finish()
 
 
 @view_workflow.handle()

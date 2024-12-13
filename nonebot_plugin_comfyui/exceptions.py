@@ -46,5 +46,9 @@ class ComfyuiExceptions(BaseException):
         def __init__(self, message="图片审核失败"):
             super().__init__(message)
 
+    class TaskNotFoundError(Exception):
+        def __init__(self, message="未找到提供的任务ID对应的任务"):
+            super().__init__(message)
+
 
 

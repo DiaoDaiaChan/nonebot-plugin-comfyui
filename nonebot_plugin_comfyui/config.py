@@ -22,6 +22,7 @@ class Config(BaseModel):
     comfyui_save_image: bool = True
     comfyui_cd: int = 20
     comfyui_day_limit: int = 50
+    comfyui_limit_as_seconds: bool = False
 
 
 config = get_plugin_config(Config)

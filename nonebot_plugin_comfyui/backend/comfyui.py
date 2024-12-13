@@ -1,6 +1,7 @@
 import copy
 import json
 import random
+import time
 import uuid
 import os
 import re
@@ -28,7 +29,7 @@ from .utils import pic_audit_standalone, run_later
 from ..exceptions import ComfyuiExceptions
 
 MAX_SEED = 2 ** 32
-OTHER_ACTION = {"override", "note", "presets", "media", "command", "reg_args", "visible", "output_prefix"}
+OTHER_ACTION = {"override", "note", "presets", "media", "command", "reg_args", "visible", "output_prefix", "daylimit"}
 MODIFY_ACTION = {"output"}
 
 
@@ -273,6 +274,7 @@ class ComfyUI:
         self.user_id = self.nb_event.get_user_id()
         self.task_id = None
         self.adapters = nonebot.get_adapters()
+        self.spend_time: int = 0
 
         self.init_images = []
         self.media_url = {}
@@ -664,7 +666,10 @@ class ComfyUI:
             UniMessage.text(f"已选择工作流: {self.work_flows}, 正在生成, 请稍等. 任务id: {self.task_id}, 后端索引: {self.backend_index}").send(), 1
         )
 
+        start_time = time.time()
         await self.heart_beat(self.task_id)
+        end_time = time.time()
+        self.spend_time = int(end_time - start_time)
 
     @staticmethod
     async def http_request(
