@@ -234,6 +234,7 @@
 ## reg_args  (难点! 敲黑板!)
 - 我们将工作流注册为命令之后, 我们还可以将为注册的命令添加自定义参数哦!
 - 就比如接下来的例子, 一个flux fill扩图工作流
+- 注意, type使用python的数据类型(int, str, float, bool, etc...)
 ``` yaml
 {
   "load_image": 17,

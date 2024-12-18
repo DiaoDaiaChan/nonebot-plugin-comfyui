@@ -18,7 +18,7 @@ from .config import Config, config
 from .handler import comfyui_handler
 from .backend.comfyui import ComfyUI
 from .backend.help import ComfyuiHelp
-from .comfyui_queue import queue_handler
+from .handler import queue_handler, api_handler
 
 comfyui_parser = ArgumentParser()
 
@@ -41,16 +41,26 @@ comfyui_parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, h
 comfyui_parser.add_argument("-bc", "--batch_count", dest="batch_count", type=int, help="批数", default=1)
 comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模型")
 comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
+comfyui_parser.add_argument("-f", dest="forward", action="store_true", help="使用转发消息")
 
-queue_parsec = ArgumentParser()
-queue_parsec.add_argument("-t", "-追踪", "--track_task", dest="override", action="store_true", help="追踪我的任务")
-queue_parsec.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url", default=config.comfyui_url)
-queue_parsec.add_argument("-i", "--id", dest="task_id", type=str, help="需要查询的任务id")
-queue_parsec.add_argument("-v", "--view", dest="view", action="store_true", help="查看历史任务")
+queue_parser = ArgumentParser()
 
-queue_parsec.add_argument("-g", "--get", "-get", dest="get_task", type=str, help="需要获取具体信息的任务")
-queue_parsec.add_argument("-index", "--index", dest="index", type=str, help="需要获取的任务id范围", default="0-20")
-# queue_parsec.add_argument("-m", "--media", dest="media_type", type=str, help="需要获取具体信息的任务的输出类型", default='image')
+queue_parser.add_argument("-track", "-t", "-追踪", "--track_task", dest="track", action="store_true", help="后端当前的任务")
+queue_parser.add_argument("-d", "--delete", dest="delete", type=str, help="从队列中清除指定的任务")
+queue_parser.add_argument("-c", "--clear", dest="clear", action="store_true", help="清除后端上的所有任务")
+queue_parser.add_argument("-stop", "--stop", dest="stop", action="store_true", help="停止当前生成")
+
+queue_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url", default="0")
+queue_parser.add_argument("-i", "--id", dest="task_id", type=str, help="需要查询的任务id")
+queue_parser.add_argument("-v", "--view", dest="view", action="store_true", help="查看历史任务")
+
+queue_parser.add_argument("-g", "--get", "-get", dest="get_task", type=str, help="需要获取具体信息的任务")
+queue_parser.add_argument("-index", "--index", dest="index", type=str, help="需要获取的任务id范围", default="0-10")
+# queue_parser.add_argument("-m", "--media", dest="media_type", type=str, help="需要获取具体信息的任务的输出类型", default='image')
+
+api_parser = ArgumentParser()
+api_parser.add_argument("-g", "--get", "-get", dest="get", type=str, help="获取所有节点", default="all")
+api_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url", default="0")
 
 
 async def rebuild_parser(wf, reg_args: dict | None = None):
@@ -73,9 +83,11 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
                 if arg["type"] in type_mapping:
                     arg["type"] = type_mapping[arg["type"]]
                     flags = arg["name_or_flags"]
+
                     del arg["name_or_flags"]
                     if "dest_to_value" in arg:
                         del arg["dest_to_value"]
+
                     comfyui_parser.add_argument(*flags, **arg)
                     logger.info(f"成功注册命令参数: {arg['dest']}")
 
@@ -98,6 +110,7 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
     comfyui_parser.add_argument("-bc", "--batch_count", dest="batch_count", type=int, help="每批数量", default=1)
     comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模型")
     comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
+    comfyui_parser.add_argument("-f", dest="forward", action="store_true", help="使用转发消息")
 
     return comfyui_parser
 
@@ -123,10 +136,18 @@ comfyui = on_shell_command(
 
 queue = on_shell_command(
     "queue",
-    parser=queue_parsec,
+    parser=queue_parser,
     priority=5,
     block=True,
     handlers=[queue_handler]
+)
+
+api = on_shell_command(
+    "capi",
+    parser=api_parser,
+    priority=5,
+    block=True,
+    handlers=[api_handler]
 )
 
 
@@ -172,7 +193,7 @@ async def build_help_text(reg_command):
 
 ## 发送 prompt
 
-发送 `prompt [正面提示词]` 来进行一次最简单的生图。
+发送 `prompt [正面提示词]` 来进行一次最简单的生图。插件默认不支持中文
 
 ## 额外注册的命令
 {"<br>".join(reg_command)}
@@ -197,8 +218,17 @@ async def build_help_text(reg_command):
 - `-o` 不使用内置正面提示词
 - `-on` 不使用内置负面提示词
 - `-be` 选择指定的后端索引(从0开始)/url
+- `-f` 发送为转发消息
 
 ---
+
+### 示例
+
+```
+prompt a girl, a beautiful girl, masterpiece -u badhand   
+-ar 1:1 -s 123456 -steps 20 -cfg 7.5 -n 1   
+-高 512 -宽 512 -sp "DPM++ 2M Karras" -be "http://127.0.0.1:8188" 
+```
 
 ### 其他命令
 
@@ -207,24 +237,26 @@ async def build_help_text(reg_command):
 
 ---
 
-### 查询队列命令
+### 查询队列命令 - queue
 机器人执行队列的时候会返回任务id, 可以有以下用处
 ---
 - `-be` 需要查看队列的后端索引或者URL(不添加默认0), 例如 queue -get bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
+- `-t` 追踪后端当前所有的任务id, 例如 queue -t -be "http://127.0.0.1:8288"
+- `-d` 需要删除的任务id, 例如 queue -d bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
+- `-c` 清除后端上的所有任务, 例如 queue -c -be 0
 - `-i` 需要查询的任务id, 例如 queue -i bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
 - `-v` 查看历史任务, 配合-index使用, 例如 queue -v -index 0-20 -be 0 (获取前20个任务id)
 - `-get` 后接任务的id, 例如, queue -get bedadef6-269c-43f4-9be4-0e5b07061233 -be 0
+- `-stop` 停止当前生成
 ---
 
-### 示例
-```
-prompt a girl, a beautiful girl, masterpiece -u badhand   
--ar 1:1 -s 123456 -steps 20 -cfg 7.5 -n 1   
--高 512 -宽 512 -sp "DPM++ 2M Karras" -be "http://127.0.0.1:8188" 
-```
+### 查询后端节点 - capi
+可以查看后端上的所有节点/单个节点的信息
+---
+- `-be` 需要查看的后端索引或者URL(不添加默认0), 例如 capi -get all -be 0
+- `-get` 需要查看的节点信息, 例如 capi -get all -be 0 (获取所有节点名称), capi -get "KSampler" -be 0 (获取KSampler节点的信息)
 
 **By:** nonebot-plugin-comfyui  
-**github.com/DiaoDaiaChan/nonebot-plugin-comfyui**
 '''
     return help_text
 

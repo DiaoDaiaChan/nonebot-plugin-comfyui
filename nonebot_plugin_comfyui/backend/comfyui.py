@@ -25,11 +25,15 @@ from itertools import islice
 
 from ..config import config
 from ..handler import UniMessage
-from .utils import pic_audit_standalone, run_later
+from .utils import pic_audit_standalone, run_later, send_msg_and_revoke
 from ..exceptions import ComfyuiExceptions
 
 MAX_SEED = 2 ** 32
-OTHER_ACTION = {"override", "note", "presets", "media", "command", "reg_args", "visible", "output_prefix", "daylimit"}
+OTHER_ACTION = {
+    "override", "note", "presets", "media",
+    "command", "reg_args", "visible", "output_prefix",
+    "daylimit", "lora"
+}
 MODIFY_ACTION = {"output"}
 
 
@@ -128,6 +132,8 @@ class ComfyUIQueue:
 
 class ComfyUI:
     work_flows_init: list = get_and_filter_work_flows()
+    # {backend_url: task_id}
+    current_task: dict = {}
 
     @classmethod
     def update_wf(cls, search=None, index=None):
@@ -157,6 +163,7 @@ class ComfyUI:
             override_ng: Optional[bool] = False,
             backend: Optional[str] = None,
             batch_count: Optional[int] = None,
+            forward: Optional[bool] = False,
             **kwargs
     ):
 
@@ -255,19 +262,26 @@ class ComfyUI:
         self.model: str = model or config.comfyui_model
         self.override = override
         self.override_ng = override_ng
+        self.forward: bool = forward
 
         self.comfyui_api_json = None
         self.reflex_json = None
         self.override_backend_setting_dict: dict = {}
 
         self.selected_backend = backend
+        self.backend_url: str = ""
+
         if backend is not None and backend.isdigit():
             self.backend_url = config.comfyui_url_list[int(backend)]
-        else:
+            self.selected_backend = self.backend_url
+        elif backend is not None and not backend.isdigit():
             self.backend_url = backend
+            self.selected_backend = self.backend_url
+        else:
+            self.backend_url = config.comfyui_url
 
-        self.backend_url: str = self.backend_url if backend else config.comfyui_url
         self.backend_index: int = 0
+        self.backend_task: dict = {}
 
         # 用户相关
         self.client_id = uuid.uuid4().hex
@@ -279,17 +293,106 @@ class ComfyUI:
         self.init_images = []
         self.media_url = {}
         self.unimessage = UniMessage.text('')
-        self.uni_video = None
-        self.uni_audio = None
-        self.uni_image = None
+        self.uni_video: list[UniMessage] = []
+        self.uni_audio: list[UniMessage] = []
+        self.uni_image: list[UniMessage] = []
+        self.uni_long_text: list[UniMessage] = []
         self.input_image = False  # 是否需要输入图片
-        
-    async def send_all_msg(self):
+
+    async def send_forward_msg(self) -> bool:
+
+        try:
+
+            if 'OneBot V11' in self.adapters:
+
+                from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent, GroupMessageEvent, Message
+
+                async def send_ob11_forward_msg(
+                        bot: Bot,
+                        event: MessageEvent,
+                        name: str,
+                        uin: str,
+                        msgs: list,
+                ) -> dict:
+
+                    def to_json(msg: Message):
+                        return {
+                            "type": "node",
+                            "data":
+                                {
+                                    "name": name,
+                                    "uin": uin,
+                                    "content": msg
+                                }
+                        }
+
+                    messages = [to_json(msg) for msg in msgs]
+                    if isinstance(event, GroupMessageEvent):
+                        return await bot.call_api(
+                            "send_group_forward_msg", group_id=event.group_id, messages=messages
+                        )
+                    elif isinstance(event, PrivateMessageEvent):
+                        return await bot.call_api(
+                            "send_private_forward_msg", user_id=event.user_id, messages=messages
+                        )
+
+                msg = []
+
+                msg.append(self.unimessage)
+
+                for i in self.uni_image:
+                    msg.append(i)
+
+                for video in self.uni_video:
+                    msg.append(video)
+
+                for text in self.uni_long_text:
+                    msg.append(text)
+
+                task_list = []
+                for unimsg in msg:
+                    task_list.append(unimsg.export())
+
+                msg = await asyncio.gather(*task_list, return_exceptions=False)
+
+                await send_ob11_forward_msg(
+                    self.bot,
+                    self.nb_event,
+                    self.nb_event.sender.nickname,
+                    self.nb_event.get_user_id(),
+                    msg
+                )
+
+                return True
+            else:
+                return False
+        except:
+            return False
+
+    async def normal_msg_send(self):
+        for img in self.uni_image:
+            self.unimessage += img
+
         await self.unimessage.send(reply_to=True)
 
         if self.uni_video:
             for video in self.uni_video:
                 await video.send()
+        
+    async def send_all_msg(self):
+
+        if self.forward:
+
+            is_forward = await self.send_forward_msg()
+
+            if is_forward is False:
+                await self.normal_msg_send()
+
+        else:
+            try:
+                await self.normal_msg_send()
+            except:
+                await self.send_forward_msg()
 
         if self.uni_audio:
             for audio in self.uni_audio:
@@ -504,10 +607,21 @@ class ComfyUI:
 
         async def get_images():
 
+            # if self.interrupt:
+            #     raise ComfyuiExceptions.InterruptError
+
             response: dict = await self.http_request(
                 method="GET",
                 target_url=f"{self.backend_url}/history/{id_}",
             )
+
+            messages = response[id_]["status"]["messages"]
+
+            start_timestamp = messages[0][1]['timestamp']
+            end_timestamp = messages[-1][1]['timestamp']
+
+            spend_time = int((end_timestamp - start_timestamp) / 1000)
+            self.spend_time += spend_time
 
             try:
 
@@ -576,6 +690,7 @@ class ComfyUI:
             async with session.ws_connect(ws_url) as ws:
 
                 logger.info(f"WS连接成功: {ws_url}")
+                self.current_task.update({self.backend_url: self.task_id})
                 progress_bar = None
 
                 async for msg in ws:
@@ -611,7 +726,10 @@ class ComfyUI:
                     await asyncio.to_thread(progress_bar.close)
 
     async def exec_generate(self):
-        await self.posting()
+        await self.select_backend()
+        for i in range(self.batch_count):
+            self.seed += 1
+            await self.posting()
         await self.download_img()
 
     async def posting(self):
@@ -653,23 +771,26 @@ class ComfyUI:
             raise ComfyuiExceptions.APIJsonError(
                 f"请求Comfyui API的时候出现错误: {respond['error']}\n节点错误信息: {respond['node_errors']}"
             )
-            # self.unimessage += UniMessage.text(f"生成失败: {respond['error']}")
-            # await self.unimessage.finish()
-            # raise RuntimeError(respond["status_code"])
 
         self.task_id = respond['prompt_id']
 
         await ComfyuiTaskQueue(backend=self.backend_url, event=self.nb_event).set_user_task(self.user_id, self.task_id)
 
         self.backend_index = config.comfyui_url_list.index(self.backend_url)
+
+        queue_ = self.backend_task.get(self.backend_url, None)
+        if queue_:
+            remain_task = queue_['exec_info']['queue_remaining']
+        else:
+            remain_task = "N/A"
+
         await run_later(
-            UniMessage.text(f"已选择工作流: {self.work_flows}, 正在生成, 请稍等. 任务id: {self.task_id}, 后端索引: {self.backend_index}").send(), 1
+            UniMessage.text(f"已选择工作流: {self.work_flows}, 正在生成, 此后端现在共有{remain_task}个任务在执行, 请稍等. 任务id: {self.task_id}, 后端索引: {self.backend_index}").send()
+            ,
+            1
         )
 
-        start_time = time.time()
         await self.heart_beat(self.task_id)
-        end_time = time.time()
-        self.spend_time = int(end_time - start_time)
 
     @staticmethod
     async def http_request(
@@ -681,8 +802,9 @@ class ComfyUI:
             format=True,
             timeout=5000,
             verify=True,
-            proxy=False
-    ) -> Union[dict, bytes]:
+            proxy=False,
+            text=False,
+    ) -> dict| bytes | str:
 
         global_ssl_context = ssl.create_default_context()
         global_ssl_context.set_ciphers('DEFAULT')
@@ -704,6 +826,8 @@ class ComfyUI:
                         data=content,
                         ssl=verify,
                 ) as response:
+                    if text:
+                        return await response.text()
                     if format:
                         return await response.json()
                     else:
@@ -839,13 +963,13 @@ class ComfyUI:
                             logger.info('私聊, 不进行审核')
 
                             if file_type == "image":
-                                self.unimessage += UniMessage.image(raw=file_bytes)
+                                self.uni_image.append(UniMessage.image(raw=file_bytes))
 
                             elif file_type == "video":
-                                self.uni_video = UniMessage.video(raw=file_bytes)
+                                self.uni_video.append(UniMessage.video(raw=file_bytes))
 
                             elif file_type == "audio":
-                                self.uni_audio = UniMessage.audio(raw=file_bytes)
+                                self.uni_audio.append(UniMessage.audio(raw=file_bytes))
 
                             return
 
@@ -856,10 +980,10 @@ class ComfyUI:
                                 task_list.append(pic_audit_standalone(file_bytes, return_bool=True))
 
                             elif file_type == "video":
-                                self.uni_video = UniMessage.video(raw=file_bytes)
+                                self.uni_video.append(UniMessage.video(raw=file_bytes))
 
                             elif file_type == "audio":
-                                self.uni_audio = UniMessage.audio(raw=file_bytes)
+                                self.uni_audio.append(UniMessage.audio(raw=file_bytes))
 
                 resp = await asyncio.gather(*task_list, return_exceptions=False)
 
@@ -868,7 +992,7 @@ class ComfyUI:
                         self.unimessage += UniMessage.text("\n这张图太涩了,私聊发给你了哦!")
                         await run_later(self.send_nsfw_image_to_private(img))
                     else:
-                        self.unimessage += UniMessage.image(raw=img)
+                        self.uni_image.append(UniMessage.image(raw=img))
 
             else:
                 for media in media_bytes:
@@ -884,7 +1008,7 @@ class ComfyUI:
                         self.unimessage += UniMessage.text("\n这张图太涩了,私聊发给你了哦!")
                         await run_later(self.send_nsfw_image_to_private(img))
                     else:
-                        self.unimessage += UniMessage.image(raw=img)
+                        self.uni_image.append(UniMessage.image(raw=img))
 
         else:
             for media in media_bytes:
@@ -892,53 +1016,56 @@ class ComfyUI:
                 for file_type, (file_bytes, file_format) in media.items():
 
                     if file_type == "image":
-                        self.unimessage += UniMessage.image(raw=file_bytes)
+                        self.uni_image.append(UniMessage.image(raw=file_bytes))
 
                     elif file_type == "video":
-                        self.uni_video = UniMessage.video(raw=file_bytes)
+                        self.uni_video.append(UniMessage.video(raw=file_bytes))
 
                     elif file_type == "audio":
-                        self.uni_audio = UniMessage.audio(raw=file_bytes)
+                        self.uni_audio.append(UniMessage.audio(raw=file_bytes))
 
     async def get_backend_work_status(self, url):
 
-        resp = await self.http_request("GET", target_url=f"{url}/queue")
+        resp = await self.http_request("GET", target_url=f"{url}/prompt", timeout=2)
         return resp
 
     async def select_backend(self):
 
-        if config.comfyui_multi_backend and self.selected_backend is None:
-            task_list = []
-            for task in config.comfyui_url_list:
-                task_list.append(self.get_backend_work_status(task))
+        backend_dict = {}
 
-            resp = await asyncio.gather(*task_list, return_exceptions=True)
+        if self.selected_backend:
+            resp = await self.get_backend_work_status(self.selected_backend)
+            self.backend_task.update({self.selected_backend: resp})
+            return
 
-            backend_dict = {}
-            for i, backend_url in zip(resp, config.comfyui_url_list):
-                if isinstance(i, Exception):
-                    logger.warning(f"后端 {backend_url} 掉线")
+        task_list = []
+        for task in config.comfyui_url_list:
+            task_list.append(self.get_backend_work_status(task))
 
-                else:
-                    backend_dict[backend_url] = i
+        resp = await asyncio.gather(*task_list, return_exceptions=True)
 
-            fastest_backend = min(
-                backend_dict.items(),
-                key=lambda x: len(x[1]["queue_running"]) + len(x[1]["queue_pending"]),
-                default=(None, None)
-            )
+        for i, backend_url in zip(resp, config.comfyui_url_list):
+            if isinstance(i, Exception):
+                logger.warning(f"后端 {backend_url} 掉线")
 
-            fastest_backend_url, fastest_backend_info = fastest_backend
-
-            if fastest_backend_url:
-                logger.info(f"选择的最快后端: {fastest_backend_url}，队列信息: {fastest_backend_info}")
             else:
-                logger.info("没有可用的后端")
+                backend_dict[backend_url] = i
 
-            self.backend_url = fastest_backend_url
+        fastest_backend = min(
+            backend_dict.items(),
+            key=lambda x: x[1]['exec_info']['queue_remaining'],
+            default=(None, None)
+        )
 
+        fastest_backend_url, fastest_backend_info = fastest_backend
+
+        if fastest_backend_url:
+            logger.info(f"选择的最快后端: {fastest_backend_url}，队列信息: {fastest_backend_info}")
         else:
-            logger.info("未设置多后端功能, 跳过选择")
+            logger.info("没有可用的后端")
+
+        self.backend_url = fastest_backend_url
+        self.backend_task.update({self.backend_url: fastest_backend_info})
 
         return
 
