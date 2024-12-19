@@ -29,11 +29,27 @@ from .utils import pic_audit_standalone, run_later, send_msg_and_revoke
 from ..exceptions import ComfyuiExceptions
 
 MAX_SEED = 2 ** 32
+
 OTHER_ACTION = {
     "override", "note", "presets", "media",
     "command", "reg_args", "visible", "output_prefix",
     "daylimit", "lora"
 }
+
+__OVERRIDE_SUPPORT_KEYS__ = {
+    'keep',
+    'value',
+    'append_prompt',
+    'append_negative_prompt',
+    "replace_prompt",
+    "replace_negative_prompt",
+    'remove',
+    "randint",
+    "get_text",
+    "upscale",
+    'image'
+}
+
 MODIFY_ACTION = {"output"}
 
 
@@ -483,17 +499,6 @@ class ComfyUI:
             }
         }
 
-        __OVERRIDE_SUPPORT_KEYS__ = {
-            'keep',
-            'value',
-            'append_prompt',
-            'append_negative_prompt',
-            'remove',
-            "randint",
-            "get_text",
-            "upscale",
-            'image'
-        }
         __ALL_SUPPORT_NODE__ = set(update_mapping.keys())
 
         for item, node_id in self.reflex_json.items():
@@ -537,6 +542,16 @@ class ComfyUI:
                                     prompt = raw_api_json[node]['inputs'][key]
                                     prompt = self.negative_prompt + prompt
                                     api_json[node]['inputs'][key] = prompt
+
+                                elif override_action == "replace_prompt" and self.override is False:
+                                    prompt = raw_api_json[node]['inputs'][key]
+                                    if "{prompt}" in prompt:
+                                        api_json[node]['inputs'][key] = prompt.replace("{prompt}", self.prompt)
+
+                                elif override_action == "replace_negative_prompt" and self.override_ng is False:
+                                    prompt = raw_api_json[node]['inputs'][key]
+                                    if "{prompt}" in prompt:
+                                        api_json[node]['inputs'][key] = prompt.replace("{prompt}", self.negative_prompt)
 
                                 elif "upscale" in override_action:
                                     scale = 1.5

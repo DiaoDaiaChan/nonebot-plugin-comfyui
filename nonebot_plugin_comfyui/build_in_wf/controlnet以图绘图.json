@@ -102,7 +102,7 @@
   },
   "25": {
     "inputs": {
-      "text": "best quality, amazing quality, very aesthetic, absurdres",
+      "text": "best quality, amazing quality,{prompt}, very aesthetic, absurdres",
       "clip": [
         "24",
         1

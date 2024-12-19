@@ -78,14 +78,16 @@
 
 ****
 ## 节点高级操作
-|   覆写操作    | 需要额外参数 |              参数说明               |         说明          |权限|
-|:---------:|:------:|:-------------------------------:|:-------------------:|:---:|
-|  randint   |   否    |                /                |      随机生成一个整数       |all|
-| append_prompt |   否    |                /                | 将工作流中自带的正面提示词添加到输入中 |all|
-|   append_negative_prompt   |   否    |                /                | 将工作流中自带的负面提示词添加到输入中 |all|
-|   upscale   |   是    |           upscale_1.5           |   对数字进行乘算, 数字为倍率    |all|
-|   value   |   是    | value_你的值_值的类型(int, str, float) |  固定工作流中的数值(优先级最高)   |all|
-|   image   |   是    |             image_0             |   适用于需要加载多个图片的工作流   |all|
+|          覆写操作           | 需要额外参数 |              参数说明               |            说明             |权限|
+|:-----------------------:|:------:|:-------------------------------:|:-------------------------:|:---:|
+|         randint         |   否    |                /                |         随机生成一个整数          |all|
+|      append_prompt      |   否    |                /                |    将工作流中自带的正面提示词添加到输入中    |all|
+| append_negative_prompt  |   否    |                /                |    将工作流中自带的负面提示词添加到输入中    |all|
+|     replace_prompt      |   否    |                /                |  将输入提示词替换到工作流中的{prompt}中  |all|
+| replace_negative_prompt |   否    |                /                | 将输入负面提示词替换到工作流中的{prompt}中 |all|
+|         upscale         |   是    |           upscale_1.5           |      对数字进行乘算, 数字为倍率       |all|
+|          value          |   是    | value_你的值_值的类型(int, str, float) |     固定工作流中的数值(优先级最高)      |all|
+|          image          |   是    |             image_0             |      适用于需要加载多个图片的工作流      |all|
 ****
 ## 还请你阅读仓库内的comfyui_work_flows来学习基本使用
 
@@ -322,6 +324,20 @@
 ![emb](../image/append_prompt.png)
 ![emb](../image/append_prompt2.png)
 
+## replace_prompt / replace_negative_prompt
+- 将输入提示词替换到工作流中的{prompt}中
+```json
+{
+  "prompt": {
+    "25": {
+      "override": {
+        "text": "replace_prompt"
+      }
+    }
+  }
+}
+```
+![emb](../image/replace.png)
 ## image
 - 需要输入多个图片的工作流
 ```json

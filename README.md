@@ -137,6 +137,7 @@ comfyui_limit_as_seconds = false
 - 支持转发消息(ob11适配器), 使用 -f 参数使这条消息转发, 也可以在override中添加 forward: true
 - queue命令支持新的参数, 具体请看帮助
 - 新capi命令, 具体请看帮助
+- 新的节点覆盖操作, replace_prompt和replace_negative_prompt [替换提示词](./docs/md/node_control.md#replace_prompt--replace_negative_prompt)
 ### 2024.12.13 0.5.1
 - 支持查询, 获取队列 (发送 comfyui帮助来查看)
 - 添加能使用画图耗费的时间来限制 (设置 comfyui_limit_as_seconds = true)
