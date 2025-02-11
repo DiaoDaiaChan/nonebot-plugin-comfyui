@@ -1,0 +1,140 @@
+{
+  "1": {
+    "inputs": {
+      "image": "00063.png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "2": {
+    "inputs": {
+      "model_name": "RealESRGAN_x4plus.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "3": {
+    "inputs": {
+      "upscale_model": [
+        "2",
+        0
+      ],
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "Upscale Image (using Model)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "filename_prefix": "nb_comfyui/upscale/upscale",
+      "images": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "5": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "scale_by": [
+        "10",
+        1
+      ],
+      "image": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Upscale Image By"
+    }
+  },
+  "8": {
+    "inputs": {
+      "size": 1216,
+      "mode": true,
+      "images": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "easy imageScaleDownToSize",
+    "_meta": {
+      "title": "限制分辨率"
+    }
+  },
+  "10": {
+    "inputs": {
+      "operation": "division",
+      "number_a": [
+        "13",
+        0
+      ],
+      "number_b": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "Number Operation",
+    "_meta": {
+      "title": "Number Operation"
+    }
+  },
+  "12": {
+    "inputs": {
+      "text": "3"
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "超分倍率"
+    }
+  },
+  "13": {
+    "inputs": {
+      "text": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "Text to Number",
+    "_meta": {
+      "title": "Text to Number"
+    }
+  },
+  "14": {
+    "inputs": {
+      "text": "4"
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "Text Multiline"
+    }
+  },
+  "15": {
+    "inputs": {
+      "text": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "Text to Number",
+    "_meta": {
+      "title": "Text to Number"
+    }
+  }
+}

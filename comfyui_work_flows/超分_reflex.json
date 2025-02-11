@@ -1,0 +1,19 @@
+{
+  "output": 4,
+  "load_image": 1,
+  "command": "超分",
+  "reg_args": {
+    "12": {
+      "args": [
+          {
+            "name_or_flags": ["-upscale"],
+            "type": "str",
+            "dest": "text",
+            "help": "超分倍率",
+            "default": "2"
+          }
+      ]
+    }
+  },
+  "note": "超分节点, 默认两倍"
+}

@@ -1,0 +1,9 @@
+{
+  "sampler": 3,
+  "image_size": 5,
+  "output": 9,
+  "prompt": 6,
+  "negative_prompt": 7,
+  "command": "绘画",
+  "note": "基础sdxl文生图工作流"
+  }

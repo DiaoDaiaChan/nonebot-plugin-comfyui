@@ -1,0 +1,57 @@
+{
+  "5": {
+    "inputs": {
+      "prompt": [
+        "8",
+        0
+      ],
+      "negative_prompt": [
+        "9",
+        0
+      ],
+      "seed": 107174455111898,
+      "steps": 250,
+      "cfg_scale": 6,
+      "sampler_type": "dpmpp-3m-sde",
+      "audio_length": 20,
+      "save_path": "",
+      "load_local_model": true,
+      "local_model_path": "G:\\ComfyUI\\models\\stable_audio"
+    },
+    "class_type": "Text2Audio",
+    "_meta": {
+      "title": "🔥stable-audio-open-1.0"
+    }
+  },
+  "7": {
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "audio": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "SaveAudio"
+    }
+  },
+  "8": {
+    "inputs": {
+      "Text": "The sound of dog barking."
+    },
+    "class_type": "DF_Text",
+    "_meta": {
+      "title": "Text"
+    }
+  },
+  "9": {
+    "inputs": {
+      "Text": "Low quality."
+    },
+    "class_type": "DF_Text",
+    "_meta": {
+      "title": "Text"
+    }
+  }
+}

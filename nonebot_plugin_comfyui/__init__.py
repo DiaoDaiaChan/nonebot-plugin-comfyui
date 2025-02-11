@@ -42,12 +42,14 @@ comfyui_parser.add_argument("-bc", "--batch_count", dest="batch_count", type=int
 comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模型")
 comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
 comfyui_parser.add_argument("-f", dest="forward", action="store_true", help="使用转发消息")
+comfyui_parser.add_argument("-gif", dest="gif", action="store_true", help="使用gif图片进行图片输入")
+comfyui_parser.add_argument("-con", dest="concurrency", action="store_true", help="并发使用多后端生图")
 
 queue_parser = ArgumentParser()
 
-queue_parser.add_argument("-track", "-t", "-追踪", "--track_task", dest="track", action="store_true", help="后端当前的任务")
+queue_parser.add_argument("--track", "-t", "-追踪", "--track_task", dest="track", action="store_true", help="后端当前的任务")
 queue_parser.add_argument("-d", "--delete", dest="delete", type=str, help="从队列中清除指定的任务")
-queue_parser.add_argument("-c", "--clear", dest="clear", action="store_true", help="清除后端上的所有任务")
+queue_parser.add_argument("-c", "--clear", "-clear", dest="clear", action="store_true", help="清除后端上的所有任务")
 queue_parser.add_argument("-stop", "--stop", dest="stop", action="store_true", help="停止当前生成")
 
 queue_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url", default="0")
@@ -111,6 +113,8 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
     comfyui_parser.add_argument("-m", "--model", dest="model", type=str, help="模型")
     comfyui_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url")
     comfyui_parser.add_argument("-f", dest="forward", action="store_true", help="使用转发消息")
+    comfyui_parser.add_argument("-gif", dest="gif", action="store_true", help="使用gif图片进行图片输入")
+    comfyui_parser.add_argument("-con", dest="concurrency", action="store_true", help="并发使用多后端生图")
 
     return comfyui_parser
 
@@ -127,7 +131,7 @@ __plugin_meta__ = PluginMetadata(
 )
 
 comfyui = on_shell_command(
-    "prompt",
+    "2prompt",
     parser=comfyui_parser,
     priority=5,
     block=True,
@@ -219,6 +223,7 @@ async def build_help_text(reg_command):
 - `-on` 不使用内置负面提示词
 - `-be` 选择指定的后端索引(从0开始)/url
 - `-f` 发送为转发消息
+- `-gif` 将gif图片输入工作流
 
 ---
 

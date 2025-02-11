@@ -1,0 +1,23 @@
+{
+  "output": {
+    "audio": [7]
+  },
+  "prompt": 8,
+  "negative_prompt": {"9": {"override": {"Text": "append_negative_prompt"}}},
+  "command": "音频生成",
+  "reg_args": {
+    "5": {
+      "args": [
+          {
+            "name_or_flags": ["-sec"],
+            "type": "int",
+            "dest": "audio_length",
+            "help": "音频长度",
+            "default": 30
+          }
+      ]
+    }
+  },
+  "note": "使用stable audio来生成音频",
+  "seed": 5
+}

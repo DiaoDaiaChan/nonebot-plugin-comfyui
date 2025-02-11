@@ -1,6 +1,6 @@
 [project]
 name = "nonebot-plugin-comfyui"
-version = "0.5.2"
+version = "0.5.3"
 description = "适用于NoneBot2的Comfyui绘图插件"
 authors = [
     {name = "DiaoDaiaChan", email = "diaodaiachan@qq.com"},
@@ -13,7 +13,8 @@ dependencies = [
     "pydantic>=1.10.0",
     "nonebot2>=2.2.0",
     "pillow>=11.0.0",
-    "nonebot-plugin-htmlrender>=0.2.0.3"
+    "nonebot-plugin-htmlrender>=0.2.0.3",
+    "filetype"
 ]
 requires-python = ">=3.10"
 readme = "README.md"

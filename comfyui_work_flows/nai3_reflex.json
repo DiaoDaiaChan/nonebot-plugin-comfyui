@@ -1,0 +1,9 @@
+{
+  "output": 44,
+  "command": "2nai3",
+  "prompt": {"42": {"override": {"Text": "replace_prompt"}}},
+  "image_size": 39,
+  "negative_prompt": 41,
+  "note": "nai3生图",
+  "seed": 39
+}

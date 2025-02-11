@@ -1,0 +1,31 @@
+{
+  "output": {
+    "image": [
+    31,
+    32
+    ],
+    "text": [33]
+  },
+  "load_image": 1,
+  "command": "以图绘图",
+  "prompt": {"25": {"override": {"text": "replace_prompt"}}},
+  "negative_prompt": {"26": {"override": {"text": "append_negative_prompt"}}},
+  "reg_args": {
+    "21": {
+      "args": [
+          {
+            "name_or_flags": ["-cn"],
+            "type": "float",
+            "dest": "strength",
+            "help": "控制强度",
+            "default": 0.8,
+            "preset": [
+              "预设1",
+              "预设2"
+            ]
+          }
+      ]
+    }
+  },
+  "note": "controlnet lineart 以图绘图"
+}

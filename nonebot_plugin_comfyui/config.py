@@ -23,6 +23,7 @@ class Config(BaseModel):
     comfyui_cd: int = 20
     comfyui_day_limit: int = 50
     comfyui_limit_as_seconds: bool = False
+    comfyui_timeout: int = 20
 
 
 config = get_plugin_config(Config)

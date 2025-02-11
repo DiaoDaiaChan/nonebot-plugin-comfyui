@@ -1,0 +1,22 @@
+{
+  "output": {
+    "audio": [5]
+  },
+  "prompt": 7,
+  "command": "音乐生成",
+  "reg_args": {
+    "5": {
+      "args": [
+          {
+            "name_or_flags": ["-sec"],
+            "type": "int",
+            "dest": "seconds",
+            "help": "音频长度",
+            "default": 30
+          }
+      ]
+    }
+  },
+  "note": "使用audio craft来生成音乐",
+  "seed": 3
+}

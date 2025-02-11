@@ -91,8 +91,8 @@ class ComfyuiHelp:
 
             note = wf.get('note', '')
             override = wf.get('override', None)
-
             override_msg = ''
+
             if override:
                 for key, value in override.items():
                     override_msg += f'{key}: {value}<br>'

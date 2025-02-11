@@ -78,6 +78,7 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 |    comfyui_cd     | int  |  否  |                         20                         |                                    绘画cd                                    |
 |    comfyui_day_limit     | int  |  否  |                         50                         |                            每天能画几次/多少秒(重启机器人会重置)                            |
 |    comfyui_limit_as_seconds     | bool |  否  |                       False                        |                         使用画图所需要的时间来进行限制, 每天能调用夺少秒                          |
+|    comfyui_timeout     | int  |  否  |                         20                         |                         请求后端的时候的超时时间                          |
 
 
 ```env
@@ -127,12 +128,18 @@ comfyui_limit_as_seconds = false
 - [ ] 支持中文生图(不打算支持, 需要的小伙伴可以使用comfyui的翻译插件即可)
 - [x] 支持图片审核
 - [x] 查看历史生图记录
-- [x] 多媒体支持 (已支持图片/视频/文字)
+- [x] 多媒体支持 (已支持图片/视频/文字/音频)
 - [x] 保存图片
 - [x] 支持设置多个后端
 - [x] 支持自定义命令
 
 ## 更新日志
+### 2025.01.03 0.5.3
+- 支持音频输出
+- 新的 -gif 参数 / 不加上它输入gif图片的时候默认截取第一帧
+- 优化了任务失败时候的异常捕获
+- 新增comfyui_timeout, 请求后端的时候的超时时间, 默认20秒
+- 新增了tips
 ### 2024.12.17 0.5.2
 - 支持转发消息(ob11适配器), 使用 -f 参数使这条消息转发, 也可以在override中添加 forward: true
 - queue命令支持新的参数, 具体请看帮助

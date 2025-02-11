@@ -3,11 +3,11 @@
 class ComfyuiExceptions(BaseException):
 
     class NoAvailableBackendError(Exception):
-        def __init__(self, message="没有可用后端"):
+        def __init__(self, message="没有可用后端, 所有后端掉线"):
             super().__init__(message)
 
     class PostingFailedError(Exception):
-        def __init__(self, message="Post服务器试出现错误"):
+        def __init__(self, message="Post服务器时出现错误"):
             super().__init__(message)
 
     class ArgsError(Exception):
@@ -54,5 +54,6 @@ class ComfyuiExceptions(BaseException):
         def __init__(self, message="任务已被终止"):
             super().__init__(message)
 
-
-
+    class TaskError(Exception):
+        def __init__(self, message="任务出错"):
+            super().__init__(message)

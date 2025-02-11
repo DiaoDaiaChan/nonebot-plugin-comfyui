@@ -1,10 +1,14 @@
 import json
+import random
 import traceback
 import os
-
+import filetype
 import datetime
+
 from argparse import Namespace
 from itertools import islice
+from io import BytesIO
+from PIL import Image
 
 from nonebot import logger
 from nonebot.plugin import require
@@ -21,6 +25,14 @@ from .backend import ComfyUI, ComfyuiTaskQueue
 
 cd = {}
 daily_calls = {}
+
+TIPS = [
+    "发送 comfyui帮助  来获取详细的操作",
+    "queue -stop 可以停止当前生成",
+    "插件默认不支持中文提示词",
+    "插件帮助菜单中的注册的命令为可以调用的额外命令",
+    "查看工作流  ,可以查看所有的工作流;查看工作流 flux ,可以筛选带有flux的工作流"
+]
 MAX_DAILY_CALLS = config.comfyui_day_limit
 
 
@@ -38,7 +50,18 @@ async def get_message_at(data: str) -> int | None:
         return None
 
 
-async def get_image(event) -> list[bytes]:
+def extract_first_frame_from_gif(gif_bytes):
+    gif_image = Image.open(BytesIO(gif_bytes))
+
+    gif_image.seek(0)
+    first_frame = gif_image.copy()
+
+    byte_array = BytesIO()
+    first_frame.save(byte_array, format="PNG")
+    return byte_array.getvalue()
+
+
+async def get_image(event, gif) -> list[bytes]:
     img_url = []
     reply = event.reply
     at_id = await get_message_at(event.json())
@@ -55,9 +78,22 @@ async def get_image(event) -> list[bytes]:
     if img_url:
         for url in img_url:
             url = url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
-
             logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
-            image_byte.append(await ComfyUI.http_request("GET", url, format=False))
+
+            byte_image = await ComfyUI.http_request("GET", url, format=False)
+
+            kind = filetype.guess(byte_image)
+            file_format = kind.extension if kind else "unknown"
+
+            if not gif:
+                if 'gif' in file_format:
+                    byte_image = extract_first_frame_from_gif(byte_image)
+                else:
+                    pass
+            else:
+                pass
+
+            image_byte.append(byte_image)
 
     return image_byte
 
@@ -65,7 +101,7 @@ async def get_image(event) -> list[bytes]:
 async def comfyui_generate(event, bot, args):
     comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot)
 
-    image_byte = await get_image(event)
+    image_byte = await get_image(event, args.gif)
     comfyui_instance.init_images = image_byte
 
     try:
@@ -123,7 +159,7 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
 
     total_image = args.batch_count * args.batch_size
     msg, reach_limit = await limit(daily_key, total_image)
-    await send_msg_and_revoke(msg, True)
+    await send_msg_and_revoke(f"{msg}, TIPS: {random.choice(TIPS)}", True)
 
     if config.comfyui_limit_as_seconds:
         daily_calls[daily_key] -= int(total_image)
@@ -166,7 +202,7 @@ async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespac
         for task in resp['queue_pending']:
             task_id.append(task[1])
 
-        comfyui_instance.unimessage += "后端共有以下任务正在执行\n" + '\n'.join(task_id)
+        comfyui_instance.unimessage += f"共有{len(task_id)}个任务\n后端共有以下任务正在执行\n" + '\n'.join(task_id)
 
     delete = args.delete
     if delete:
@@ -221,13 +257,14 @@ async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespac
         except KeyError:
             await matcher.finish(f"任务{args.get_task}不存在")
 
-        comfyui_instance = await get_file_url(comfyui_instance, outputs, backend_url)
+        comfyui_instance = await get_file_url(comfyui_instance, outputs, backend_url, args.get_task)
 
         await comfyui_instance.download_img()
 
-        comfyui_instance.unimessage = f"这是你要找的任务:\n" + comfyui_instance.unimessage
+        comfyui_instance.unimessage = f"这是你要找的任务:\n"
 
     if args.view:
+
         def get_keys_from_ranges(all_task_dict, ranges_str):
             selected_keys = []
             start, end = map(int, ranges_str.split('-'))
@@ -272,9 +309,10 @@ async def api_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs
     await comfyui_instance.send_all_msg()
 
 
-async def get_file_url(comfyui_instance, outputs, backend_url):
-    images_url = comfyui_instance.media_url.get('image', [])
-    video_url = comfyui_instance.media_url.get('video', [])
+async def get_file_url(comfyui_instance, outputs, backend_url, task_id):
+    images_url = []
+    video_url = []
+    audio_url = []
 
     for imgs in list(outputs.values()):
         if 'images' in imgs:
@@ -303,14 +341,37 @@ async def get_file_url(comfyui_instance, outputs, backend_url):
                 else:
                     url = f"{backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
 
+                if img['type'] == "temp":
+                    url = f"{backend_url}/view?filename={filename}&subfolder=&type=temp"
+
                 video_url.append({"url": url, "file_format": file_format})
+
+        if "audio" in imgs:
+            for img in imgs['audio']:
+                filename = img['filename']
+                _, file_format = os.path.splitext(filename)
+
+                if img['subfolder'] == "":
+                    url = f"{backend_url}/view?filename={filename}"
+                else:
+                    url = f"{backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
+
+                if img['type'] == "temp":
+                    url = f"{backend_url}/view?filename={filename}&subfolder=&type=temp"
+
+                audio_url.append({"url": url, "file_format": file_format})
 
         if 'text' in imgs:
 
             for img in imgs['text']:
                 comfyui_instance.unimessage += img
 
-    comfyui_instance.media_url['image'] = images_url
-    comfyui_instance.media_url['video'] = video_url
+    comfyui_instance.resp_msg.media_url['image'] = images_url
+    comfyui_instance.resp_msg.media_url['video'] = video_url
+    comfyui_instance.resp_msg.media_url['audio'] = audio_url
+    comfyui_instance.resp_msg.backend_index = config.comfyui_url_list.index(backend_url)
+    comfyui_instance.resp_msg.task_id = task_id
+
+    comfyui_instance.resp_msg_list.append(comfyui_instance.resp_msg)
 
     return comfyui_instance

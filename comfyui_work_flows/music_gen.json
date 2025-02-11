@@ -1,0 +1,40 @@
+{
+  "3": {
+    "inputs": {
+      "prompt": [
+        "7",
+        0
+      ],
+      "seconds": 60,
+      "guidance_scale": 4,
+      "seed": 1118751239,
+      "device": "auto"
+    },
+    "class_type": "Musicgen_",
+    "_meta": {
+      "title": "Music Gen"
+    }
+  },
+  "5": {
+    "inputs": {
+      "filename_prefix": "audio/ComfyUI",
+      "audio": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "SaveAudio"
+    }
+  },
+  "7": {
+    "inputs": {
+      "Text": ""
+    },
+    "class_type": "DF_Text",
+    "_meta": {
+      "title": "Text"
+    }
+  }
+}
