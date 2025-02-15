@@ -293,6 +293,34 @@
 ![emb](../image/reg.png)
 ![emb](../image/reg2.png)
 
+## 自定义预设参数
+- 为了方便自定义参数, 本插件内置了一个自定义参数映射功能
+- 添加到reg_args内, 这样我们可以使用 -cn low, 来将控制强度设定为0.5
+```json
+{
+  "reg_args": {
+    "21": {
+      "args": [
+        {
+          "name_or_flags": [
+            "-cn"
+          ],
+          "type": "float",
+          "dest": "strength",
+          "help": "控制强度",
+          "default": 0.8,
+          "preset": {
+            "default": 0.8,
+            "low": 0.5,
+            "mid": 0.8,
+            "high": 1.0
+          }
+        }
+      ]
+    }
+  }
+}
+```
 
 # 高级节点覆写操作
 

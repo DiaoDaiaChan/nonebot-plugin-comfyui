@@ -4,7 +4,7 @@
 
 _⭐基于NoneBot2调用Comfyui(https://github.com/comfyanonymous/ComfyUI)进行绘图的插件⭐_  
 _⭐AI文生图,图生图...插件(comfyui能做到的它都可以)⭐_  
-_⭐本插件适配多后端, 不过对于更多的多后端支持请转到https://github.com/DiaoDaiaChan/nonebot-plugin-stable-diffusion-diao⭐_
+_⭐本插件适配多后端, 可以同时使用多个后端生图哦_
 
 <a href="https://www.python.org/downloads/release/python-390/"><img src="https://img.shields.io/badge/python-3.10+-blue"></a>  <a href=""><img src="https://img.shields.io/badge/QQ-437012661-yellow"></a> <a href="https://github.com/Cvandia/nonebot-plugin-game-torrent/blob/main/LICENCE"><img src="https://img.shields.io/badge/license-MIT-blue"></a> <a href="https://v2.nonebot.dev/"><img src="https://img.shields.io/badge/Nonebot2-2.2.0+-red"></a>
 
@@ -29,13 +29,15 @@ _⭐本插件适配多后端, 不过对于更多的多后端支持请转到https
 - [x] 支持自由选择工作流, 能把工作流注册成命令, 并且支持为工作流自定义命令参数, 灵活度拉满!
 ![emb](./docs/image/command2.png)
 ![emb](./docs/image/reg2.png)
-- [x] 支持同时使用多个后端(自动选择/手动选择)
+- [x] 支持同时使用多个后端(自动选择/手动选择), 支持多后端同时生图(-con 参数)
+![emb](./docs/image/con.png)
 - [x] 独创reflex模式, 来自定义comfyui参数
 - [x] 具备图像审核, 防止涩涩
 - [x] 使用ALC实现跨平台
 - [x] 支持comfyui队列, 使用任务id来查询任务状态, 获取任务生成结果, 终止任务等等
 - [x] 支持查询comfyui节点详细信息
 - [x] 支持一个工作流同时输出多种媒体(同时输出几张图片, 文字, 视频)
+- [x] 支持本地审核图片了, 不需要再调用雕雕的api
 
 ## 💿 安装
 
@@ -66,19 +68,20 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 |:-------------------------:|:----:|:---:|:--------------------------------------------------:|:--------------------------------------------------------------------------:|
 |        comfyui_url        | str  |  是  |              "http://127.0.0.1:8188"               |                                comfyui后端地址                                 |
 |     comfyui_url_list      | list |  否  | ["http://127.0.0.1:8188", "http://127.0.0.1:8288"] |                               comfyui后端地址列表                                |
-|        comfyui_multi_backend        | bool |  否  |                       False                        |                                   多后端支持                                    |
+|   comfyui_multi_backend   | bool |  否  |                       False                        |                                   多后端支持                                    |
 |       comfyui_model       | str  |  否  |                         ""                         |                              覆写加载模型节点的时候使用的模型                              |
 |   comfyui_workflows_dir   | str  |  是  |                   ./data/comfyui                   |                     comfyui工作流路径(默认机器人路径/data/comfyui)                     |
 | comfyui_default_workflows | str  |  否  |                     "txt2img"                      | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
 |      comfyui_max_res      | int  |  否  |                        2048                        |                              最大分辨率 ^ 2 (暂时没用)                              |
 |     comfyui_base_res      | int  |  否  |                        1024                        |                      基础分辨率 ^ 2 (使用-ar 参数的时候插件决定的分辨率)                       |
 |       comfyui_audit       | bool |  否  |                        True                        |                                   启动图片审核                                   |
+|    comfyui_audit_local    | bool |  否  |                       False                        |                                  启动本地图片审核                                  |
 |    comfyui_audit_site     | str  |  否  |         "http://server.20020026.xyz:7865"          |                      图片审核地址(使用sd-webui的tagger插件的API)                       |
 |    comfyui_save_image     | bool |  否  |                        True                        |                      是否保存媒体文件到本地(机器人路径/data/comfyui)                       |
-|    comfyui_cd     | int  |  否  |                         20                         |                                    绘画cd                                    |
-|    comfyui_day_limit     | int  |  否  |                         50                         |                            每天能画几次/多少秒(重启机器人会重置)                            |
-|    comfyui_limit_as_seconds     | bool |  否  |                       False                        |                         使用画图所需要的时间来进行限制, 每天能调用夺少秒                          |
-|    comfyui_timeout     | int  |  否  |                         20                         |                         请求后端的时候的超时时间                          |
+|        comfyui_cd         | int  |  否  |                         20                         |                                    绘画cd                                    |
+|     comfyui_day_limit     | int  |  否  |                         50                         |                            每天能画几次/多少秒(重启机器人会重置)                            |
+| comfyui_limit_as_seconds  | bool |  否  |                       False                        |                         使用画图所需要的时间来进行限制, 每天能调用夺少秒                          |
+|      comfyui_timeout      | int  |  否  |                         5                          |                                请求后端的时候的超时时间                                |
 
 
 ```env
@@ -91,11 +94,13 @@ comfyui_default_workflows = "txt2img"
 comfyui_max_res = 2048
 comfyui_base_res = 1024
 comfyui_audit = true
+comfyui_audit_local = false
 comfyui_audit_site = "http://server.20020026.xyz:7865"
 comfyui_save_image = true
 comfyui_cd = 20
 comfyui_day_limit = 20
 comfyui_limit_as_seconds = false
+comfyui_timeout = 5
 ```
 
 ## 关键!
@@ -104,6 +109,8 @@ comfyui_limit_as_seconds = false
 ### 关于comfyui_workflows_dir路径下的工作流格式
 ### 请导出工作流的时候选择导出为API格式!
 ## [重要!插件基础芝士](./docs/md/node_control.md)
+## 一些小trick
+## [trick](./docs/md/trick.md)
 
 ## ⭐ 使用
 
@@ -132,14 +139,21 @@ comfyui_limit_as_seconds = false
 - [x] 保存图片
 - [x] 支持设置多个后端
 - [x] 支持自定义命令
+- [x] 支持并发生图
+- [x] 支持本地审核图像啦
 
 ## 更新日志
-### 2025.01.03 0.5.3
+### 2025.02.15 0.6
 - 支持音频输出
 - 新的 -gif 参数 / 不加上它输入gif图片的时候默认截取第一帧
 - 优化了任务失败时候的异常捕获
-- 新增comfyui_timeout, 请求后端的时候的超时时间, 默认20秒
+- 新增comfyui_timeout, 请求后端的时候的超时时间, 默认5秒
 - 新增了tips
+- 新增了并发功能, 使用 -con, -并发 来使用多后端同时生成
+- 新增了自定义参数预设功能  [设定自定义参数](./docs/md/node_control.md#自定义预设参数)
+- 更新了查看工作流的显示效果和帮助菜单
+- 添加插件版本更新提示
+- 添加了本地审核 (comfyui_audit_local)
 ### 2024.12.17 0.5.2
 - 支持转发消息(ob11适配器), 使用 -f 参数使这条消息转发, 也可以在override中添加 forward: true
 - queue命令支持新的参数, 具体请看帮助

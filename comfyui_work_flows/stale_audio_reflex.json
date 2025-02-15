@@ -4,7 +4,7 @@
   },
   "prompt": 8,
   "negative_prompt": {"9": {"override": {"Text": "append_negative_prompt"}}},
-  "command": "音频生成",
+  "command": "2音频生成",
   "reg_args": {
     "5": {
       "args": [

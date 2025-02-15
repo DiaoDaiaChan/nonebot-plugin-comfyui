@@ -1,5 +1,5 @@
 import base64
-import json
+import asyncio
 import random
 import nonebot
 
@@ -64,18 +64,33 @@ async def pic_audit_standalone(
 
     async def get_caption(payload):
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    url=f"{config.comfyui_audit_site}/tagger/v1/interrogate",
-                    json=payload
-            ) as resp:
+        if config.comfyui_audit_local:
+            from .wd_audit import tagger_main
+            from ..config import wd_instance
+            resp_dict = {}
+            caption = await asyncio.get_event_loop().run_in_executor(
+                None,
+                tagger_main,
+                payload['image'],
+                payload['threshold'],
+                wd_instance
+            )
+            resp_dict["caption"] = caption
+            return resp_dict
 
-                if resp.status not in [200, 201]:
-                    resp_text = await resp.text()
-                    logger.error(f"API失败，错误信息:{resp.status, resp_text}")
-                    return None
-                resp_dict = await resp.json()
-                return resp_dict
+        else:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                        url=f"{config.comfyui_audit_site}/tagger/v1/interrogate",
+                        json=payload
+                ) as resp:
+
+                    if resp.status not in [200, 201]:
+                        resp_text = await resp.text()
+                        logger.error(f"API失败，错误信息:{resp.status, resp_text}")
+                        return None
+                    resp_dict = await resp.json()
+                    return resp_dict
 
     payload = {"image": img_base64, "model": "wd14-vit-v2-git", "threshold": 0.35}
     resp_dict = await get_caption(payload)

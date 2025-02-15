@@ -1,0 +1,184 @@
+{
+  "output": 44,
+  "command": "cnai4",
+  "visible": false,
+  "prompt": {"42": {"override": {"Text": "replace_prompt"}}},
+  "image_size": 39,
+  "seed": 39,
+  "negative_prompt": 41,
+    "reg_args": {
+        "38": {
+            "args": [
+                {
+                    "name_or_flags": ["-c1"],
+                    "type": "str",
+                    "dest": "character1",
+                    "help": "角色1提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c1u"],
+                    "type": "str",
+                    "dest": "character1_uc",
+                    "help": "角色1负面提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c1x"],
+                    "type": "float",
+                    "dest": "character1_x",
+                    "help": "角色1x轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c1y"],
+                    "type": "float",
+                    "dest": "character1_y",
+                    "help": "角色1y轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c2e"],
+                    "type": "bool",
+                    "dest": "character2_enable",
+                    "help": "启动二号角色",
+                    "default": false
+                },
+                {
+                    "name_or_flags": ["-c2"],
+                    "type": "str",
+                    "dest": "character2",
+                    "help": "角色2提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c2u"],
+                    "type": "str",
+                    "dest": "character2_uc",
+                    "help": "角色2负面提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c2x"],
+                    "type": "float",
+                    "dest": "character2_x",
+                    "help": "角色2x轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c2y"],
+                    "type": "float",
+                    "dest": "character2_y",
+                    "help": "角色2y轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c3e"],
+                    "type": "bool",
+                    "dest": "character3_enable",
+                    "help": "启动三号角色",
+                    "default": false
+                },
+                {
+                    "name_or_flags": ["-c3"],
+                    "type": "str",
+                    "dest": "character3",
+                    "help": "角色3提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c3u"],
+                    "type": "str",
+                    "dest": "character3_uc",
+                    "help": "角色3负面提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c3x"],
+                    "type": "float",
+                    "dest": "character3_x",
+                    "help": "角色3x轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c3y"],
+                    "type": "float",
+                    "dest": "character3_y",
+                    "help": "角色3y轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c4e"],
+                    "type": "bool",
+                    "dest": "character4_enable",
+                    "help": "启动四号角色",
+                    "default": false
+                },
+                {
+                    "name_or_flags": ["-c4"],
+                    "type": "str",
+                    "dest": "character4",
+                    "help": "角色4提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c4u"],
+                    "type": "str",
+                    "dest": "character4_uc",
+                    "help": "角色4负面提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c4x"],
+                    "type": "float",
+                    "dest": "character4_x",
+                    "help": "角色4x轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c4y"],
+                    "type": "float",
+                    "dest": "character4_y",
+                    "help": "角色4y轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c5e"],
+                    "type": "bool",
+                    "dest": "character5_enable",
+                    "help": "启动五号角色",
+                    "default": false
+                },
+                {
+                    "name_or_flags": ["-c5"],
+                    "type": "str",
+                    "dest": "character5",
+                    "help": "角色5提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c5u"],
+                    "type": "str",
+                    "dest": "character5_uc",
+                    "help": "角色5负面提示词",
+                    "default": ""
+                },
+                {
+                    "name_or_flags": ["-c5x"],
+                    "type": "float",
+                    "dest": "character5_x",
+                    "help": "角色5x轴位置",
+                    "default": 0.5
+                },
+                {
+                    "name_or_flags": ["-c5y"],
+                    "type": "float",
+                    "dest": "character5_y",
+                    "help": "角色5y轴位置",
+                    "default": 0.5
+                }
+            ]
+        }
+    },
+  "note": "nai4角色控制生图"
+}

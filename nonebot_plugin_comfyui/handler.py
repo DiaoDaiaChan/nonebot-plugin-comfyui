@@ -10,7 +10,7 @@ from itertools import islice
 from io import BytesIO
 from PIL import Image
 
-from nonebot import logger
+from nonebot import logger, get_bot
 from nonebot.plugin import require
 from nonebot import Bot
 from nonebot.adapters import Event
@@ -22,16 +22,19 @@ from nonebot_plugin_alconna import UniMessage
 from .backend.utils import send_msg_and_revoke
 from .config import config
 from .backend import ComfyUI, ComfyuiTaskQueue
+from .backend.update_check import check_package_update
 
 cd = {}
 daily_calls = {}
+TEMP_MSG = False
 
 TIPS = [
     "发送 comfyui帮助  来获取详细的操作",
     "queue -stop 可以停止当前生成",
     "插件默认不支持中文提示词",
     "插件帮助菜单中的注册的命令为可以调用的额外命令",
-    "查看工作流  ,可以查看所有的工作流;查看工作流 flux ,可以筛选带有flux的工作流"
+    "查看工作流  ,可以查看所有的工作流;查看工作流 flux ,可以筛选带有flux的工作流",
+    "使用-con / -并发 参数进行多后端并发生图"
 ]
 MAX_DAILY_CALLS = config.comfyui_day_limit
 
@@ -145,6 +148,22 @@ async def limit(daily_key, counter) -> (str, bool):
 
 
 async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):
+    global TEMP_MSG
+
+    try:
+        if TEMP_MSG == False:
+            update_msg, is_new_ver = await check_package_update()
+
+            if is_new_ver:
+                bot = get_bot()
+                for superuser in config.comfyui_superusers:
+                    await bot.send_private_msg(user_id=superuser, message=update_msg)
+
+            await bot.send(event, update_msg)
+            TEMP_MSG = True
+    except:
+        logger.warning("版本更新信息获取失败")
+
     nowtime = datetime.datetime.now().timestamp()
     today_date = datetime.datetime.now().strftime('%Y-%m-%d')  # 获取当前日期
     user_id = event.get_user_id()
@@ -273,6 +292,7 @@ async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespac
             return selected_keys
 
         keys = get_keys_from_ranges(queue_instance.all_task_dict, args.index)
+        keys.sort(reverse=True)
 
         id_list_str = '\n'.join(list(keys))
         comfyui_instance.unimessage = f"此ComfyUI后端上共有: {len(queue_instance.all_task_dict.keys())}个任务,\n这是指定的任务的id:\n {id_list_str}" + comfyui_instance.unimessage

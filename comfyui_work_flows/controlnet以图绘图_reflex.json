@@ -7,7 +7,7 @@
     "text": [33]
   },
   "load_image": 1,
-  "command": "以图绘图",
+  "command": "2以图绘图",
   "prompt": {"25": {"override": {"text": "replace_prompt"}}},
   "negative_prompt": {"26": {"override": {"text": "append_negative_prompt"}}},
   "reg_args": {
@@ -19,10 +19,12 @@
             "dest": "strength",
             "help": "控制强度",
             "default": 0.8,
-            "preset": [
-              "预设1",
-              "预设2"
-            ]
+            "preset": {
+              "default": 0.8,
+              "low": 0.5,
+              "mid": 0.8,
+              "high": 1.0
+            }
           }
       ]
     }
