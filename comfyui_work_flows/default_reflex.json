@@ -1,0 +1,81 @@
+{
+  "image_size": 53,
+  "output": 89,
+  "sampler": 52,
+  "prompt": {"95": {"override": {"text": "append_prompt"}}},
+  "negative_prompt": {"94": {"override": {"text": "append_negative_prompt"}}},
+  "override": {
+    "steps": 28,
+    "sampler": "ddim",
+    "cfg_scale": 5,
+    "scheduler": "karras"
+  },
+  "command": "default",
+  "reg_args": {
+    "85": {
+      "args": [
+          {
+            "name_or_flags": ["-msd"],
+            "type": "str",
+            "dest": "sampling",
+            "help": "模型高级采样",
+            "default": "eps",
+            "preset": {
+              "vpred": "v_prediction"
+            }
+          }
+      ]
+    },
+    "4": {
+      "args": [
+          {
+            "name_or_flags": ["-m"],
+            "type": "str",
+            "dest": "ckpt_name",
+            "help": "更换模型",
+            "default": "NoobXL-EPS-v1.1.safetensors",
+            "preset": {
+              "noob1.1": "NoobXL-EPS-v1.1.safetensors",
+              "noobv": "noobaiXLNAIXL_vPred10Version.safetensors",
+              "ill1": "Illustrious-XL-v1.0.safetensors",
+              "pony": "ponyDiffusionV6XL_v6StartWithThisOne.safetensors",
+              "anime4": "animagine-xl-4.0-opt.safetensors"
+            }
+          }
+      ]
+    },
+    "92": {
+      "args": [
+          {
+            "name_or_flags": ["-pr"],
+            "type": "str",
+            "dest": "text",
+            "help": "正面提示词预设",
+            "default": ",(artist:dsmile:0.5), (artist:darkkanan:0.4),(artist:momoko (momopoco):0.6)|(artist:maccha_(mochancc):0.4),(artist:colon br:1),",
+            "preset": {
+              "1": ",(artist:dsmile:0.5), (artist:darkkanan:0.4),(artist:momoko (momopoco):0.6)|(artist:maccha_(mochancc):0.4),(artist:colon br:1),best quality, amazing quality, very aesthetic, absurdres,",
+              "2": ",(artist:reia:1.1)|(artist:rurudo:1.3),(artist:colon br:0.8),(artist:momoko (momopoco):0.6)|(artist:maccha_(mochancc):0.4),best quality, amazing quality, very aesthetic, absurdres,",
+              "3": ",(artist:qianqianjie:1),(artist:rurudo:1), (artist:torino aqua:0.4),(artist:momoko (momopoco):0.7),(artist:umehara sei:1.1),(artist:yuki (yuki no 42):1),(artist:akakura:0.5),(artist:vs0mr:1.1),best quality, amazing quality, very aesthetic, absurdres,",
+              "4": ",(artist:fur_y:1),(artist:azarashi6:1),(artist:chen bin:1),(artist:chon (chon33v):1),(artist:cogecha:1),,(artist:chibana sora:1),",
+              "5": ", score_9,score_8_up,score_7_up,score_anime,amazing quality,very aesthetic,absurdres,"
+            }
+          }
+      ]
+    },
+    "91": {
+      "args": [
+          {
+            "name_or_flags": ["-npr"],
+            "type": "str",
+            "dest": "text",
+            "help": "负面提示词预设",
+            "default": ",bad hands, worst quality, low quality, bad quality, multiple views, 4koma, comic, jpeg artifacts, monochrome, sepia, greyscale, flat color, pale color, muted color, low contrast, bad anatomy, picture frame, english text, signature, watermark, logo, patreon username, web address, artist name,furry,",
+            "preset": {
+              "1": "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand",
+              "2": ",worst quality,low quality,quality,lowres,signature,username,bad id,bad twitter id,english commentary,logo,bad hands,mutated hands,mammal,anthro,furry,"
+            }
+          }
+      ]
+    }
+}
+}

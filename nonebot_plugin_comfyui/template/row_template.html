@@ -1,0 +1,12 @@
+<tr>
+    <td>{{ index }}</td>
+    <td><span class="media-type">{{ media_type }}</span></td>
+    <td><strong>{{ name }}</strong></td>
+    <td>{{ '✅ 是' if is_loaded_image else '❌ 否' }}</td>
+    <td><span class="image-count">{{ image_count }}张</span></td>
+    <td>{{ override_msg or '-' }}</td>
+    <td>{{ reg_command or '-' }}</td>
+    <td>{{ reg_args_table | safe }}</td>
+    <td>{{ reg_preset_table | safe }}</td>
+    <td>{{ note or '-' }}</td>
+</tr>

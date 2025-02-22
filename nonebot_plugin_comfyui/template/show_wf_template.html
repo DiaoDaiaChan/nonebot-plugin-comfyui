@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>ComfyUI 工作流列表</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 30px 40px;  /* 增加页面内边距 */
+            background: #f8f9fa;
+            min-width: 1200px;   /* 设定最小基础宽度 */
+        }
+        .table-wrapper {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 20px 0;     /* 增加表格外边距 */
+            overflow: visible;   /* 关闭滚动条 */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;  /* 表格最小宽度 */
+            table-layout: auto;  /* 自动列宽分配 */
+        }
+        /* 列宽精确分配 */
+        th:nth-child(1), td:nth-child(1) { width: 4%; }    /* 序号 */
+        th:nth-child(2), td:nth-child(2) { width: 15%; }    /* 输出类型 */
+        th:nth-child(3), td:nth-child(3) { width: 16%; }   /* 工作流名称 */
+        th:nth-child(4), td:nth-child(4) { width: 8%; }    /* 需图片输入 */
+        th:nth-child(5), td:nth-child(5) { width: 7%; }   /* 图片数量 */
+        th:nth-child(6), td:nth-child(6) { width: 11%; }  /* 覆写设置 */
+        th:nth-child(7), td:nth-child(7) { width: 14%; }  /* 注册命令 */
+        th:nth-child(8), td:nth-child(8) { width: 13%; }  /* 注册参数 */
+        th:nth-child(9), td:nth-child(9) { width: 12%; }  /* 注册预设 */
+        th:nth-child(10), td:nth-child(10) { width: 16%; } /* 备注说明 */
+
+        th, td {
+            padding: 14px 18px;         /* 加大单元格内边距 */
+            border-bottom: 1px solid #dee2e6;
+            text-align: left;
+            vertical-align: top;
+            line-height: 1.5;
+        }
+        th {
+            background: #2c3e50;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            font-size: 0.95rem;
+        }
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        tr:hover {
+            background-color: #f1f3f5;
+        }
+        h1 {
+            color: #2c3e50;
+            margin: 0 0 25px 10px;
+            font-size: 2.2rem;
+        }
+        .media-type {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        .image-count {
+            color: #e67e22;
+            font-weight: bold;
+        }
+        /* 子表格样式 */
+        .sub-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+        }
+        .sub-table th, .sub-table td {
+            padding: 8px 10px;
+            border: 1px solid #dee2e6;
+            font-size: 0.9rem;
+            background-color: #f8f9fa;
+        }
+        .sub-table th {
+            background-color: #495057;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ ComfyUI 工作流列表</h1>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>输出类型</th>
+                    <th>工作流名称</th>
+                    <th>需图片输入</th>
+                    <th>图片数量</th>
+                    <th>覆写设置</th>
+                    <th>注册命令</th>
+                    <th>注册参数</th>
+                    <th>注册预设</th>
+                    <th>备注说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ tbody_content }}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

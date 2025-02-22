@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI 绘图插件文档 - Version {{ plugin_version }}</title>
+    <style>
+        /* 样式部分保持不变，确保视觉一致性 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: #f8f9fa;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            padding: 2rem;
+        }
+
+        /* 新增注册命令样式 */
+        .registration-box {
+            background: #fff3d4;
+            border-left: 4px solid #ffc107;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 6px;
+        }
+
+        .registration-box pre {
+            background: #2c3e50;
+            margin: 1rem 0;
+        }
+
+        .command-icon::before {
+            content: "📝 ";
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 ComfyUI 绘图插件文档 - v{{ plugin_version }}</h1>
+
+        <!-- 基础命令部分 -->
+        <section class="basic-commands">
+            <h2>基础命令</h2>
+            <div class="warning">
+                ⚠️ 默认不支持中文提示词，必须包含至少1个正向提示词
+                ⚠️ 提示词中如果包含单引号, 需要用双引号括起来, 例如 prompt "girl's"
+            </div>
+
+            <pre><code>prompt [正面提示词] [参数]</code></pre>
+            <pre><code>查看工作流 ,  查看工作流 flux (查看带有flux的工作流), 查看工作流 1 查看1号工作流(按顺序)</code></pre>
+
+            <h3>核心参数表</h3>
+            <table class="param-table">
+                <tr>
+                    <th>参数</th>
+                    <th>类型</th>
+                    <th>说明</th>
+                    <th>默认值</th>
+                </tr>
+                {% for param in parameters %}
+                <tr>
+                    <td>{{ param.flag }}</td>
+                    <td>{{ param.type }}</td>
+                    <td>{{ param.description }}</td>
+                    <td>{{ param.default }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </section>
+
+        <!-- 注册命令突出显示 -->
+        <section class="registration-commands">
+            <div class="registration-box">
+                <h2 class="command-icon">注册命令列表</h2>
+                {% if reg_commands %}
+                    {% for cmd in reg_commands %}
+                    <pre><code>{{ cmd }}</code></pre>
+                    {% endfor %}
+                {% else %}
+                    <p>暂未注册额外命令</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- 其他部分保持不变，使用模板变量 -->
+        <section class="advanced-commands">
+            <div class="command-table">
+                <h3>完整参数示例</h3>
+                <pre><code>prompt "a girl, masterpiece, 8k" -u "badhand, blurry" --ar 3:4 -s 123456 --steps 25 --cfg 7.5 -高 768 -宽 512</code></pre>
+            </div>
+        </section>
+
+
+        <section class="queue-management">
+            <h2>队列管理命令 - queue</h2>
+            <table>
+                <tr>
+                    <td><code>-get</code></td>
+                    <td>后接任务的id/URL</td>
+                    <td><code>queue -get ... -be 0</code></td>
+                </tr>
+                <tr>
+                    <td><code>-be</code></td>
+                    <td>指定后端索引/URL</td>
+                    <td><code>queue -get ... -be 0</code></td>
+                </tr>
+                                <tr>
+                    <td><code>-t</code></td>
+                    <td>追踪后端当前所有的任务id/URL</td>
+                    <td><code>queue -be 0 -t ....</code></td>
+                </tr>
+                                <tr>
+                    <td><code>-d</code></td>
+                    <td>需要删除的任务id/URL</td>
+                    <td><code>queue -d ... -be 0</code></td>
+                </tr>
+                                <tr>
+                    <td><code>-c</code></td>
+                    <td>清除后端上的所有任务/URL</td>
+                    <td><code>queue -c ... -be 0</code></td>
+                </tr>
+                                <tr>
+                    <td><code>-i</code></td>
+                    <td>需要查询的任务id/URL</td>
+                    <td><code>queue -i ... -be 0</code></td>
+                </tr>
+                                <tr>
+                    <td><code>-v</code></td>
+                    <td>查看历史任务, 配合-index使用/URL</td>
+                    <td><code>queue -v -index 0-20 -be 0 (获取前20个任务id)
+</code></td>
+                </tr>
+                                <tr>
+                    <td><code>-stop</code></td>
+                    <td>停止当前生成/URL</td>
+                    <td><code>queue -stop -be 0</code></td>
+                </tr>
+            </table>
+        </section>
+
+        <section class="queue-management">
+            <h2>查询后端节点 - capi</h2>
+            <table>
+                <tr>
+                    <td><code>-get</code></td>
+                    <td>需要查看的节点信息, 例如 capi -get all -be 0 (获取所有节点名称)</td>
+                    <td><code>capi -get "KSampler" -be 0 (获取KSampler节点的信息)</code></td>
+                </tr>
+                <tr>
+                    <td><code>-be</code></td>
+                    <td>指定后端索引/URL</td>
+                    <td><code>capi -get ... -be 0</code></td>
+                </tr>
+            </table>
+        </section>
+
+        <footer>
+            <p><strong>By:</strong> nonebot-plugin-comfyui</p>
+        </footer>
+
+        <!-- 其他部分结构保持不变 -->
+        <!-- ... -->
+
+    </div>
+</body>
+</html>

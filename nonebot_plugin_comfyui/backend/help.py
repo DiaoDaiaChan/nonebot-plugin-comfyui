@@ -1,8 +1,9 @@
 import aiofiles
+import jinja2
 import json
 import os
 
-from ..config import config
+from ..config import config, PLUGIN_DIR
 from .pw import get_workflow_sc
 
 from nonebot_plugin_alconna import UniMessage
@@ -54,113 +55,45 @@ class ComfyuiHelp:
 
     @staticmethod
     async def get_reg_args(wf):
-        resp_text = ''
         if wf is None:
-            return None
+            return "无"
         else:
+            args_table = "<table class='sub-table'><thead><tr><th>参数名</th><th>类型</th><th>默认值</th><th>描述</th></tr></thead><tbody>"
             for key, value in wf.items():
                 for arg in value['args']:
-                    resp_text += f"注册的参数: {arg['name_or_flags'][0]}, 类型: {arg['type']}, 默认值: {arg['default']}, 描述: {arg['help']}<br>"
+                    args_table += f"<tr><td>{arg['name_or_flags'][0]}</td><td>{arg['type']}</td><td>{arg['default']}</td><td>{arg['help']}</td></tr>"
+            args_table += "</tbody></table>"
+            return args_table
 
-            return resp_text
+    @staticmethod
+    async def get_reg_preset_table(wf):
+        if wf is None:
+            return "无"
+        else:
+            preset_table = "<table class='sub-table'><thead><tr><th>参数</th><th>预设键</th><th>预设值</th></tr></thead><tbody>"
+            for key, value in wf.items():
+                for arg in value['args']:
+                    if 'preset' in arg:
+                        for preset_key, preset_value in arg['preset'].items():
+                            # 遍历 name_or_flags 列表
+                            name_or_flags = ", ".join(arg.get('name_or_flags', []))
+                            preset_table += f"<tr><td>{name_or_flags}</td><td>{preset_key}</td><td>{preset_value}</td></tr>"
+            preset_table += "</tbody></table>"
+            # 检查表格是否为空
+            if preset_table == "<table class='sub-table'><thead><tr><th>参数</th><th>预设键</th><th>预设值</th></tr></thead><tbody></tbody></table>":
+                return '无'
+            else:
+                return preset_table
 
-    async def get_html(self, search) -> (str, UniMessage):
+    async def get_html(self, search):
 
         len_, content, wf_name = await self.get_reflex_json(search)
         self.workflows_reflex = content
         self.workflows_name = wf_name
 
-        html_template = """
-        <!DOCTYPE html>
-        <html lang="zh-CN">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>ComfyUI 工作流列表</title>
-            <style>
-                * {{ box-sizing: border-box; }}
-                body {{ 
-                    font-family: 'Segoe UI', system-ui, sans-serif;
-                    line-height: 1.6;
-                    margin: 0;
-                    padding: 20px;
-                    background: #f8f9fa;
-                }}
-                .table-wrapper {{
-                    max-width: 100%;
-                    overflow-x: auto;
-                    background: white;
-                    border-radius: 12px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                }}
-                table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    min-width: 500px;
-                }}
-                th, td {{
-                    padding: 12px 15px;
-                    border-bottom: 1px solid #e9ecef;
-                    text-align: left;
-                }}
-                th {{
-                    background: #2c3e50;
-                    color: white;
-                    font-weight: 600;
-                    position: sticky;
-                    top: 0;
-                }}
-                tr:nth-child(even) {{
-                    background-color: #f8f9fa;
-                }}
-                tr:hover {{
-                    background-color: #f1f3f5;
-                    transition: background 0.2s;
-                }}
-                .media-type {{
-                    font-weight: 500;
-                    color: #2c3e50;
-                }}
-                .image-count {{
-                    color: #e67e22;
-                    font-weight: bold;
-                }}
-                h1 {{
-                    color: #2c3e50;
-                    margin-bottom: 1.5rem;
-                }}
-                h2 {{
-                    color: #34495e;
-                    margin: 1rem 0;
-                    font-size: 1.25rem;
-                }}
-            </style>
-        </head>
-        <body>
-            <h1>🖼️ ComfyUI 工作流</h1>
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>输出类型</th>
-                            <th>工作流名称</th>
-                            <th>需图片输入</th>
-                            <th>图片数量</th>
-                            <th>覆写设置</th>
-                            <th>注册命令</th>
-                            <th>注册参数</th>
-                            <th>备注说明</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {tbody_content}
-                    </tbody>
-                </table>
-            </div>
-        </body>
-        </html>
-                """
+        with open(PLUGIN_DIR / 'template' / 'show_wf_template.html', 'r', encoding='utf-8') as f:
+            template_str = f.read()
+
         tbody_rows = []
         for index, (wf, name) in enumerate(zip(self.workflows_reflex, self.workflows_name), 1):
 
@@ -174,27 +107,40 @@ class ComfyuiHelp:
 
             media_type = wf.get('media', "image").capitalize()
             reg_command = wf.get('command', '')
-            reg_args = await self.get_reg_args(wf.get('reg_args'))
 
-            row = f"""
-                <tr>
-                    <td>{index}</td>
-                    <td><span class="media-type">{media_type}</span></td>
-                    <td><strong>{name}</strong></td>
-                    <td>{"✅ 是" if is_loaded_image else "❌ 否"}</td>
-                    <td><span class="image-count">{image_count}张</span></td>
-                    <td>{override_msg or '-'}</td>
-                    <td>{reg_command or '-'}</td>
-                    <td>{reg_args or '无'}</td>
-                    <td>{note or '-'}</td>
-                </tr>
-            """
+            reg_args = wf.get('reg_args')
+            reg_args_table = await self.get_reg_args(reg_args)
+
+            reg_preset_str = wf.get('reg_args')
+            reg_preset_table = await self.get_reg_preset_table(reg_preset_str)
+
+            with open(PLUGIN_DIR / 'template' / 'row_template.html', 'r', encoding='utf-8') as f:
+                row_template = f.read()
+
+            template = jinja2.Template(row_template)
+            row = template.render(
+                index=index,
+                media_type=media_type,
+                name=name,
+                is_loaded_image=is_loaded_image,
+                image_count=image_count,
+                override_msg=override_msg,
+                reg_command=reg_command,
+                reg_args_table=reg_args_table,
+                reg_preset_table=reg_preset_table,
+                note=note
+            )
             tbody_rows.append(row)
 
             if len_ == 1 and wf.get('visible', True):
+                env = jinja2.Environment()
+                template = env.from_string(template_str)
+                full_html = template.render(tbody_content='\n'.join(tbody_rows))
                 sc_image = await get_workflow_sc(name)
-                return html_template.format(tbody_content='\n'.join(tbody_rows)), UniMessage.image(raw=sc_image)
+                return full_html, UniMessage.image(raw=sc_image)
 
-        full_html = html_template.format(tbody_content='\n'.join(tbody_rows))
-        return full_html, UniMessage.text('')
+        env = jinja2.Environment()
+        template = env.from_string(template_str)
+        full_html = template.render(tbody_content='\n'.join(tbody_rows))
 
+        return full_html, ''

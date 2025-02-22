@@ -64,24 +64,26 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 
 **在.env中添加以下配置**
 
-|           基础配置            |  类型  | 必填项 |                        默认值                         |                                     说明                                     |
-|:-------------------------:|:----:|:---:|:--------------------------------------------------:|:--------------------------------------------------------------------------:|
-|        comfyui_url        | str  |  是  |              "http://127.0.0.1:8188"               |                                comfyui后端地址                                 |
-|     comfyui_url_list      | list |  否  | ["http://127.0.0.1:8188", "http://127.0.0.1:8288"] |                               comfyui后端地址列表                                |
-|   comfyui_multi_backend   | bool |  否  |                       False                        |                                   多后端支持                                    |
-|       comfyui_model       | str  |  否  |                         ""                         |                              覆写加载模型节点的时候使用的模型                              |
-|   comfyui_workflows_dir   | str  |  是  |                   ./data/comfyui                   |                     comfyui工作流路径(默认机器人路径/data/comfyui)                     |
-| comfyui_default_workflows | str  |  否  |                     "txt2img"                      | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
-|      comfyui_max_res      | int  |  否  |                        2048                        |                              最大分辨率 ^ 2 (暂时没用)                              |
-|     comfyui_base_res      | int  |  否  |                        1024                        |                      基础分辨率 ^ 2 (使用-ar 参数的时候插件决定的分辨率)                       |
-|       comfyui_audit       | bool |  否  |                        True                        |                                   启动图片审核                                   |
-|    comfyui_audit_local    | bool |  否  |                       False                        |                                  启动本地图片审核                                  |
-|    comfyui_audit_site     | str  |  否  |         "http://server.20020026.xyz:7865"          |                      图片审核地址(使用sd-webui的tagger插件的API)                       |
-|    comfyui_save_image     | bool |  否  |                        True                        |                      是否保存媒体文件到本地(机器人路径/data/comfyui)                       |
-|        comfyui_cd         | int  |  否  |                         20                         |                                    绘画cd                                    |
-|     comfyui_day_limit     | int  |  否  |                         50                         |                            每天能画几次/多少秒(重启机器人会重置)                            |
-| comfyui_limit_as_seconds  | bool |  否  |                       False                        |                         使用画图所需要的时间来进行限制, 每天能调用夺少秒                          |
-|      comfyui_timeout      | int  |  否  |                         5                          |                                请求后端的时候的超时时间                                |
+|             基础配置             |  类型  | 必填项 |                                                                        默认值                                                                        |                                     说明                                     |
+|:----------------------------:|:----:|:---:|:-------------------------------------------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------:|
+|         comfyui_url          | str  |  是  |                                                              "http://127.0.0.1:8188"                                                              |                                comfyui后端地址                                 |
+|       comfyui_url_list       | list |  否  |                                                ["http://127.0.0.1:8188", "http://127.0.0.1:8288"]                                                 |                               comfyui后端地址列表                                |
+|    comfyui_multi_backend     | bool |  否  |                                                                       False                                                                       |                                   多后端支持                                    |
+|        comfyui_model         | str  |  否  |                                                                        ""                                                                         |                              覆写加载模型节点的时候使用的模型                              |
+|    comfyui_workflows_dir     | str  |  是  |                                                                  ./data/comfyui                                                                   |                     comfyui工作流路径(默认机器人路径/data/comfyui)                     |
+|  comfyui_default_workflows   | str  |  否  |                                                                     "txt2img"                                                                     | 不传入工作流参数的时候默认使用的工作流名称(请你自己准备喜欢的工作流, 或者复制本仓库中的comfyui_work_flows中的工作流来学习使用) |
+|       comfyui_max_res        | int  |  否  |                                                                       2048                                                                        |                              最大分辨率 ^ 2 (暂时没用)                              |
+|       comfyui_base_res       | int  |  否  |                                                                       1024                                                                        |                      基础分辨率 ^ 2 (使用-ar 参数的时候插件决定的分辨率)                       |
+|        comfyui_audit         | bool |  否  |                                                                       True                                                                        |                                   启动图片审核                                   |
+|     comfyui_audit_local      | bool |  否  |                                                                       False                                                                       |                                  启动本地图片审核                                  |
+|      comfyui_audit_site      | str  |  否  |                                                         "http://server.20020026.xyz:7865"                                                         |                      图片审核地址(使用sd-webui的tagger插件的API)                       |
+|     comfyui_audit_level      | int  |  否  |                                                                         2                                                                         |               审核严格程度, 可选1, 2, 3, 100 数值越大审核越严格, 100为只返回图片到私聊               |
+|      comfyui_save_image      | bool |  否  |                                                                       True                                                                        |                      是否保存媒体文件到本地(机器人路径/data/comfyui)                       |
+|          comfyui_cd          | int  |  否  |                                                                        20                                                                         |                                    绘画cd                                    |
+|      comfyui_day_limit       | int  |  否  |                                                                        50                                                                         |                            每天能画几次/多少秒(重启机器人会重置)                            |
+|   comfyui_limit_as_seconds   | bool |  否  |                                                                       False                                                                       |                         使用画图所需要的时间来进行限制, 每天能调用夺少秒                          |
+|       comfyui_timeout        | int  |  否  |                                                                         5                                                                         |                                请求后端的时候的超时时间                                |
+|     comfyui_shape_preset     | dict |  否  | {"p": (832, 1216),"l": (1216, 832),"s": (1024, 1024),"lp": (1152, 1536),"ll": (1536, 1152),"ls":(1240, 1240),"up": (960, 1920),"ul": (1920, 960)} |                       预设的分辨率, 使用 -shape / -r 快速更改分辨率                       |
 
 
 ```env
@@ -96,11 +98,13 @@ comfyui_base_res = 1024
 comfyui_audit = true
 comfyui_audit_local = false
 comfyui_audit_site = "http://server.20020026.xyz:7865"
+comfyui_audit_level = 2
 comfyui_save_image = true
 comfyui_cd = 20
 comfyui_day_limit = 20
 comfyui_limit_as_seconds = false
 comfyui_timeout = 5
+comfyui_shape_preset = {"p": (832, 1216),"l": (1216, 832),"s": (1024, 1024),"lp": (1152, 1536),"ll": (1536, 1152),"ls":(1240, 1240),"up": (960, 1920),"ul": (1920, 960)}
 ```
 
 ## 关键!
@@ -143,6 +147,12 @@ comfyui_timeout = 5
 - [x] 支持本地审核图像啦
 
 ## 更新日志
+### 2025.02.22 0.6.1
+- 新的参数 -shape , 预设分辨率(comfyui_shape_preset), 可以使用此参数来快速更改分辨率
+- 优化了查看工作流命令
+- 返回帮助菜单的时候会返回一个基础使用教程
+- 添加了审核严格程度, comfyui_audit_level 
+- 优化了一些代码结构
 ### 2025.02.15 0.6
 - 支持音频输出
 - 新的 -gif 参数 / 不加上它输入gif图片的时候默认截取第一帧

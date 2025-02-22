@@ -1,0 +1,209 @@
+{
+  "4": {
+    "inputs": {
+      "ckpt_name": "NoobXL-EPS-v1.1.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": [
+        "90",
+        0
+      ],
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "52",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "52": {
+    "inputs": {
+      "seed": 200236,
+      "steps": 28,
+      "cfg": 5,
+      "sampler_name": "ddim",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "85",
+        0
+      ],
+      "positive": [
+        "83",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "53",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "53": {
+    "inputs": {
+      "width": 1152,
+      "height": 1536,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "83": {
+    "inputs": {
+      "text": [
+        "93",
+        0
+      ],
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "85": {
+    "inputs": {
+      "sampling": "eps",
+      "zsnr": false,
+      "model": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingDiscrete",
+    "_meta": {
+      "title": "ModelSamplingDiscrete"
+    }
+  },
+  "89": {
+    "inputs": {
+      "custom_path": "",
+      "filename_prefix": "diao/default/de",
+      "timestamp": "None",
+      "format": "png",
+      "quality": 90,
+      "meta_data": true,
+      "blind_watermark": "",
+      "save_workflow_as_json": false,
+      "preview": true,
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: SaveImagePlus",
+    "_meta": {
+      "title": "LayerUtility: SaveImage Plus"
+    }
+  },
+  "90": {
+    "inputs": {
+      "action": "append",
+      "tidy_tags": "yes",
+      "text_a": [
+        "91",
+        0
+      ],
+      "text_b": [
+        "94",
+        0
+      ],
+      "text_c": ""
+    },
+    "class_type": "StringFunction|pysssss",
+    "_meta": {
+      "title": "negative"
+    }
+  },
+  "91": {
+    "inputs": {
+      "text": ",bad hands, worst quality, low quality, bad quality, multiple views, 4koma, comic, jpeg artifacts, monochrome, sepia, greyscale, flat color, pale color, muted color, low contrast, bad anatomy, picture frame, english text, signature, watermark, logo, patreon username, web address, artist name,furry"
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "Text Multiline"
+    }
+  },
+  "92": {
+    "inputs": {
+      "text": ",(artist:dsmile:0.5), (artist:darkkanan:0.4),(artist:momoko (momopoco):0.6)|(artist:maccha_(mochancc):0.4),(artist:colon br:1),"
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "Text Multiline"
+    }
+  },
+  "93": {
+    "inputs": {
+      "action": "append",
+      "tidy_tags": "yes",
+      "text_a": [
+        "92",
+        0
+      ],
+      "text_b": [
+        "95",
+        0
+      ],
+      "text_c": ""
+    },
+    "class_type": "StringFunction|pysssss",
+    "_meta": {
+      "title": "prompt"
+    }
+  },
+  "94": {
+    "inputs": {
+      "text": ""
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "Text Multiline"
+    }
+  },
+  "95": {
+    "inputs": {
+      "text": ""
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "Text Multiline"
+    }
+  }
+}

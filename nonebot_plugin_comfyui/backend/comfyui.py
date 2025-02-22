@@ -51,7 +51,7 @@ __OVERRIDE_SUPPORT_KEYS__ = {
     'image'
 }
 
-MODIFY_ACTION = {"output"}
+MODIFY_ACTION = {"output", "reg_args"}
 
 
 class RespMsg:
@@ -200,8 +200,8 @@ class ComfyUI:
             backend: Optional[str] = None,
             batch_count: Optional[int] = None,
             forward: Optional[bool] = False,
-            concurrency: bool = False,
-            chain: str = None,
+            concurrency: Optional[bool] = False,
+            shape: Optional[str] = None,
             **kwargs
     ):
 
@@ -272,12 +272,15 @@ class ComfyUI:
         # 绘图参数相关
         self.prompt: str = self.list_to_str(prompt or "")
         self.negative_prompt: str = self.list_to_str(negative_prompt or "")
+        
         self.accept_ratio: str = accept_ratio
         if self.accept_ratio is None:
             self.height: int = height or 1216
             self.width: int = width or 832
         else:
             self.width, self.height = self.extract_ratio()
+        self.shape: str = shape
+
         self.seed: int = seed or random.randint(0, MAX_SEED)
         self.steps: int = steps or 20
         self.cfg_scale: float = cfg_scale or 7.0
@@ -899,6 +902,16 @@ class ComfyUI:
         if self.reflex_json.get('override', None):
             self.override_backend_setting_dict = self.reflex_json['override']
             await self.override_backend_setting_func()
+            
+        shape_preset_dict = config.comfyui_shape_preset
+        if self.shape:
+            if self.shape in shape_preset_dict:
+                shape_tuple = shape_preset_dict.get(self.shape)
+                self.width = shape_tuple[0]
+                self.height = shape_tuple[1]
+            else:
+                if 'x' in self.shape:
+                    self.width, self.height = map(int, self.shape.split('x'))
 
         upload_img_resp_list = []
 
@@ -1153,7 +1166,7 @@ class ComfyUI:
                 if file_type == "image":
                     resp_.resp_img += UniMessage.image(raw=file_bytes)
                 elif file_type == "video":
-                    resp_.resp_video.append(UniMessage.video(raw=file_bytes))
+                    await run_later(UniMessage.video(raw=file_bytes).send())
                 elif file_type == "audio":
                     await run_later(UniMessage.audio(raw=file_bytes).send())
 
@@ -1164,7 +1177,7 @@ class ComfyUI:
                     if file_type == "image":
                         resp_.resp_img += UniMessage.image(raw=file_bytes)
                     elif file_type == "video":
-                        resp_.resp_video.append(UniMessage.video(raw=file_bytes))
+                        await run_later(UniMessage.video(raw=file_bytes).send())
                     elif file_type == "audio":
                         await run_later(UniMessage.audio(raw=file_bytes).send())
 

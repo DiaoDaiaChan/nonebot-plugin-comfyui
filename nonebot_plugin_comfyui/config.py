@@ -7,6 +7,8 @@ from nonebot import get_plugin_config, logger, get_driver
 from pathlib import Path
 from pydantic import BaseModel
 
+PLUGIN_DIR = Path(os.path.dirname(os.path.abspath(__file__))).resolve()
+
 
 class Config(BaseModel):
     comfyui_url: str = "http://127.0.0.1:8188"
@@ -19,12 +21,23 @@ class Config(BaseModel):
     comfyui_base_res: int = 1024
     comfyui_audit: bool = True
     comfyui_audit_local: bool = False
+    comfyui_audit_level: int = 2
     comfyui_audit_site: str = "http://server.20020026.xyz:7865"
     comfyui_save_image: bool = True
     comfyui_cd: int = 20
     comfyui_day_limit: int = 50
     comfyui_limit_as_seconds: bool = False
     comfyui_timeout: int = 5
+    comfyui_shape_preset: dict = {
+        "p": (832, 1216),
+        "l": (1216, 832),
+        "s": (1024, 1024),
+        "lp": (1152, 1536),
+        "ll": (1536, 1152),
+        "ls": (1240, 1240),
+        "up": (960, 1920),
+        "ul": (1920, 960)
+    }
     comfyui_superusers: list = []
 
 
@@ -70,7 +83,6 @@ if config.comfyui_audit_local:
     )
 
     wd_instance.load()
-
     logger.info("模型加载成功")
 
 logger.info(f"Comfyui插件加载完成, 配置: {config}")

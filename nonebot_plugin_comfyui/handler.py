@@ -1,14 +1,9 @@
 import json
 import random
-import traceback
-import os
-import filetype
 import datetime
 
 from argparse import Namespace
 from itertools import islice
-from io import BytesIO
-from PIL import Image
 
 from nonebot import logger, get_bot
 from nonebot.plugin import require
@@ -19,9 +14,9 @@ from nonebot.params import ShellCommandArgs, Matcher
 require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import UniMessage
 
-from .backend.utils import send_msg_and_revoke
+from .backend.utils import send_msg_and_revoke, comfyui_generate, get_file_url
 from .config import config
-from .backend import ComfyUI, ComfyuiTaskQueue
+from .backend import ComfyuiTaskQueue, ComfyUI
 from .backend.update_check import check_package_update
 
 cd = {}
@@ -39,91 +34,7 @@ TIPS = [
 MAX_DAILY_CALLS = config.comfyui_day_limit
 
 
-async def get_message_at(data: str) -> int | None:
-    '''
-    获取at列表
-    :param data: event.json()
-    '''
-    data = json.loads(data)
-    try:
-        msg = data['original_message'][1]
-        if msg['type'] == 'at':
-            return int(msg['data']['qq'])
-    except Exception:
-        return None
-
-
-def extract_first_frame_from_gif(gif_bytes):
-    gif_image = Image.open(BytesIO(gif_bytes))
-
-    gif_image.seek(0)
-    first_frame = gif_image.copy()
-
-    byte_array = BytesIO()
-    first_frame.save(byte_array, format="PNG")
-    return byte_array.getvalue()
-
-
-async def get_image(event, gif) -> list[bytes]:
-    img_url = []
-    reply = event.reply
-    at_id = await get_message_at(event.json())
-    # 获取图片url
-    if at_id and not reply:
-        img_url = [f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"]
-    for seg in event.message['image']:
-        img_url.append(seg.data["url"])
-    if reply:
-        for seg in reply.message['image']:
-            img_url.append(seg.data["url"])
-
-    image_byte = []
-    if img_url:
-        for url in img_url:
-            url = url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
-            logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
-
-            byte_image = await ComfyUI.http_request("GET", url, format=False)
-
-            kind = filetype.guess(byte_image)
-            file_format = kind.extension if kind else "unknown"
-
-            if not gif:
-                if 'gif' in file_format:
-                    byte_image = extract_first_frame_from_gif(byte_image)
-                else:
-                    pass
-            else:
-                pass
-
-            image_byte.append(byte_image)
-
-    return image_byte
-
-
-async def comfyui_generate(event, bot, args):
-    comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot)
-
-    image_byte = await get_image(event, args.gif)
-    comfyui_instance.init_images = image_byte
-
-    try:
-        await comfyui_instance.exec_generate()
-    except Exception as e:
-        traceback.print_exc()
-        await send_msg_and_revoke(f'任务{comfyui_instance.task_id}生成失败, {e}')
-        raise e
-
-    unimsg: UniMessage = comfyui_instance.unimessage
-    unimsg = UniMessage.text(f'队列完成, 耗时:{comfyui_instance.spend_time}秒\n') + unimsg
-    comfyui_instance.unimessage = unimsg
-
-    await comfyui_instance.send_all_msg()
-
-    return comfyui_instance
-
-
-async def limit(daily_key, counter) -> (str, bool):
+async def limit(daily_key, counter):
     if config.comfyui_limit_as_seconds:
         if daily_key in daily_calls:
             daily_calls[daily_key] += int(counter)
@@ -160,9 +71,11 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
                     await bot.send_private_msg(user_id=superuser, message=update_msg)
 
             await bot.send(event, update_msg)
-            TEMP_MSG = True
+
     except:
         logger.warning("版本更新信息获取失败")
+    finally:
+        TEMP_MSG = True
 
     nowtime = datetime.datetime.now().timestamp()
     today_date = datetime.datetime.now().strftime('%Y-%m-%d')  # 获取当前日期
@@ -328,70 +241,3 @@ async def api_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs
 
     await comfyui_instance.send_all_msg()
 
-
-async def get_file_url(comfyui_instance, outputs, backend_url, task_id):
-    images_url = []
-    video_url = []
-    audio_url = []
-
-    for imgs in list(outputs.values()):
-        if 'images' in imgs:
-            for img in imgs['images']:
-
-                filename = img['filename']
-                _, file_format = os.path.splitext(filename)
-
-                if img['subfolder'] == "":
-                    url = f"{backend_url}/view?filename={filename}"
-                else:
-                    url = f"{backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
-
-                if img['type'] == "temp":
-                    url = f"{backend_url}/view?filename={filename}&subfolder=&type=temp"
-
-                images_url.append({"url": url, "file_format": file_format})
-
-        if 'gifs' in imgs:
-            for img in imgs['gifs']:
-                filename = img['filename']
-                _, file_format = os.path.splitext(filename)
-
-                if img['subfolder'] == "":
-                    url = f"{backend_url}/view?filename={filename}"
-                else:
-                    url = f"{backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
-
-                if img['type'] == "temp":
-                    url = f"{backend_url}/view?filename={filename}&subfolder=&type=temp"
-
-                video_url.append({"url": url, "file_format": file_format})
-
-        if "audio" in imgs:
-            for img in imgs['audio']:
-                filename = img['filename']
-                _, file_format = os.path.splitext(filename)
-
-                if img['subfolder'] == "":
-                    url = f"{backend_url}/view?filename={filename}"
-                else:
-                    url = f"{backend_url}/view?filename={filename}&subfolder={img['subfolder']}"
-
-                if img['type'] == "temp":
-                    url = f"{backend_url}/view?filename={filename}&subfolder=&type=temp"
-
-                audio_url.append({"url": url, "file_format": file_format})
-
-        if 'text' in imgs:
-
-            for img in imgs['text']:
-                comfyui_instance.unimessage += img
-
-    comfyui_instance.resp_msg.media_url['image'] = images_url
-    comfyui_instance.resp_msg.media_url['video'] = video_url
-    comfyui_instance.resp_msg.media_url['audio'] = audio_url
-    comfyui_instance.resp_msg.backend_index = config.comfyui_url_list.index(backend_url)
-    comfyui_instance.resp_msg.task_id = task_id
-
-    comfyui_instance.resp_msg_list.append(comfyui_instance.resp_msg)
-
-    return comfyui_instance
