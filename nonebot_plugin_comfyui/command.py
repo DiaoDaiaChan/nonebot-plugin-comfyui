@@ -1,23 +1,17 @@
 import asyncio
-import os
 
 from nonebot import logger
-from nonebot.plugin import PluginMetadata, inherit_supported_adapters
-from nonebot.rule import ArgumentParser
 from nonebot.plugin.on import on_shell_command, on_command
-from nonebot.plugin import PluginMetadata, require, inherit_supported_adapters
 
-require("nonebot_plugin_alconna")
-require("nonebot_plugin_htmlrender")
-from nonebot_plugin_alconna import on_alconna, Args, UniMessage
 from nonebot_plugin_htmlrender import html_to_pic, md_to_pic
-from arclet.alconna import Alconna
+from nonebot_plugin_alconna import on_alconna, Args, UniMessage, Alconna
 
 from .handler import comfyui_handler
 from .backend.help import ComfyuiHelp
 from .handler import queue_handler, api_handler
 from .parser import comfyui_parser, api_parser, queue_parser, rebuild_parser
 from .backend.utils import build_help_text
+from .config import PLUGIN_DIR
 
 comfyui = on_shell_command(
     "prompt",
@@ -46,7 +40,7 @@ api = on_shell_command(
 
 help_ = on_command(
     "comfyui帮助", 
-    aliases={"帮助", "菜单", "help"}, 
+    aliases={"帮助", "菜单", "help", "指令"},
     priority=1, 
     block=False
 )
@@ -82,7 +76,7 @@ async def start_up_func():
                 )
 
                 logger.info(f"成功注册命令: {wf['command']}")
-                reg_command.append(wf["command"])
+                reg_command.append((wf["command"], wf.get("note", "")))
 
         return reg_command
 
@@ -94,23 +88,22 @@ async def _():
     img = await html_to_pic(html=await build_help_text(reg_command))
     
     ug_str = '⚠️⚠️⚠️基础使用教程⚠️⚠️⚠️'
-    
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    source_template = os.path.join(current_dir, "./template/example.md")
+
+    source_template = PLUGIN_DIR / "template/example.md"
 
     with open(source_template, 'r', encoding='utf-8') as f:
         source_template = f.read()
     
     user_guidance = await md_to_pic(md=source_template)
     ug_str += UniMessage.image(raw=user_guidance)
-    ug_str += '⚠️⚠️⚠️不看是猪⚠️⚠️⚠️'
+    ug_str += '⚠️⚠️⚠️重要⚠️⚠️⚠️'
 
     msg = UniMessage.text('项目地址: github.com/DiaoDaiaChan/nonebot-plugin-comfyui')
     img = UniMessage.image(raw=img)
     msg = msg + img
 
     await msg.send()
-    await asyncio.sleep(1000)
+    await asyncio.sleep(1)
     await ug_str.finish()
 
 

@@ -1,7 +1,5 @@
 import os
 import shutil
-import sys
-import subprocess
 
 from nonebot import get_plugin_config, logger, get_driver
 from pathlib import Path
@@ -22,6 +20,7 @@ class Config(BaseModel):
     comfyui_audit: bool = True
     comfyui_audit_local: bool = False
     comfyui_audit_level: int = 2
+    comfyui_audit_comp: bool = False
     comfyui_audit_site: str = "http://server.20020026.xyz:7865"
     comfyui_save_image: bool = True
     comfyui_cd: int = 20
@@ -59,30 +58,5 @@ else:
     for file in build_in_wf.iterdir():
         if file.is_file():
             shutil.copy(file, wf_dir)
-
-if config.comfyui_audit_local:
-    try:
-        import pandas as pd
-        import numpy as np
-        import huggingface_hub
-        import onnxruntime
-    except ModuleNotFoundError:
-        logger.info("正在安装本地审核需要的依赖和模型")
-        subprocess.run([sys.executable, "-m", "pip", "install", "pandas", "numpy", "pillow", "huggingface_hub"])
-        subprocess.run([sys.executable, "-m", "pip", "install", "onnxruntime"])
-
-    logger.info("正在本地审核加载实例")
-    from .backend.wd_audit import WaifuDiffusionInterrogator
-
-    wd_instance = WaifuDiffusionInterrogator(
-        name='WaifuDiffusion',
-        repo_id="SmilingWolf/wd-vit-tagger-v3",
-        revision='v2.0',
-        model_path='model.onnx',
-        tags_path='selected_tags.csv'
-    )
-
-    wd_instance.load()
-    logger.info("模型加载成功")
 
 logger.info(f"Comfyui插件加载完成, 配置: {config}")

@@ -9,16 +9,18 @@ import aiohttp
 import filetype
 
 from nonebot import logger
-from ..config import config
+from ..config import config, PLUGIN_DIR
 
 from io import BytesIO
 from PIL import Image
 from asyncio import get_running_loop
 from nonebot_plugin_alconna import UniMessage
+from jinja2 import Environment, FileSystemLoader
 
 cd = {}
 daily_calls = {}
-PLUGIN_VERSION = '0.6.0'
+PLUGIN_VERSION = '0.7'
+
 
 async def run_later(func, delay=1):
     loop = get_running_loop()
@@ -31,22 +33,24 @@ async def run_later(func, delay=1):
 
 
 async def set_res(new_img: Image) -> str:
-    max_res = 640
-    old_res = new_img.width * new_img.height
-    width = new_img.width
-    height = new_img.height
+    if config.comfyui_audit_comp:
+        max_res = 640
+        old_res = new_img.width * new_img.height
+        width = new_img.width
+        height = new_img.height
 
-    if old_res > pow(max_res, 2):
-        if width <= height:
-            ratio = height / width
-            width: float = max_res / pow(ratio, 0.5)
-            height: float = width * ratio
-        else:
-            ratio = width / height
-            height: float = max_res / pow(ratio, 0.5)
-            width: float = height * ratio
-        logger.info(f"审核图片尺寸已调整至{round(width)}x{round(height)}")
-        new_img.resize((round(width), round(height)))
+        if old_res > pow(max_res, 2):
+            if width <= height:
+                ratio = height / width
+                width: float = max_res / pow(ratio, 0.5)
+                height: float = width * ratio
+            else:
+                ratio = width / height
+                height: float = max_res / pow(ratio, 0.5)
+                width: float = height * ratio
+            logger.info(f"审核图片尺寸已调整至{round(width)}x{round(height)}")
+            new_img.resize((round(width), round(height)))
+
     img_bytes = BytesIO()
     new_img.save(img_bytes, format="JPEG")
     img_bytes = img_bytes.getvalue()
@@ -72,7 +76,7 @@ async def pic_audit_standalone(
 
         if config.comfyui_audit_local:
             from .wd_audit import tagger_main
-            from ..config import wd_instance
+            from .. import wd_instance
             resp_dict = {}
             caption = await asyncio.get_event_loop().run_in_executor(
                 None,
@@ -234,7 +238,7 @@ async def get_image(event, gif) -> list[bytes]:
 async def comfyui_generate(event, bot, args):
     from . import ComfyUI
     comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot)
-
+    # 加载图片
     image_byte = await get_image(event, args.gif)
     comfyui_instance.init_images = image_byte
 
@@ -323,370 +327,118 @@ async def get_file_url(comfyui_instance, outputs, backend_url, task_id):
 
 
 async def build_help_text(reg_command):
-    
-    shape = config.comfyui_shape_preset
-    shape_str = ''
-    for k, v in shape.items():
-        shape_str += f"预设: {k}, 分辨率: {v[0]}x{v[1]}"
-    
-
-    help_text = f"""
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ComfyUI 绘图插件文档 - Version {PLUGIN_VERSION}</title>
-    <style>
-        * {{
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }}
-
-        body {{
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            line-height: 1.6;
-            color: #2c3e50;
-            background: #f8f9fa;
-            padding: 2rem;
-        }}
-
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-            padding: 2rem;
-        }}
-
-        h1, h2, h3 {{
-            color: #2c3e50;
-            margin-bottom: 1.5rem;
-        }}
-
-        h1 {{
-            font-size: 2.5rem;
-            border-bottom: 3px solid #3498db;
-            padding-bottom: 0.5rem;
-            margin-bottom: 2rem;
-        }}
-
-        h2 {{
-            font-size: 1.8rem;
-            color: #34495e;
-            margin-top: 2rem;
-            padding-left: 1rem;
-            border-left: 4px solid #3498db;
-        }}
-
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            background: white;
-        }}
-
-        th, td {{
-            padding: 12px 15px;
-            border: 1px solid #ecf0f1;
-            text-align: left;
-        }}
-
-        th {{
-            background-color: #3498db;
-            color: white;
-            font-weight: 600;
-        }}
-
-        tr:nth-child(even) 
-            background-color: #f8f9fa;
-        }}
-
-        code {{
-            font-family: 'Fira Code', monospace;
-            background: #2c3e50;
-            color: #ecf0f1;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }}
-
-        pre {{
-            background: #2c3e50;
-            color: #ecf0f1;
-            padding: 1rem;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin: 1rem 0;
-            line-height: 1.4;
-        }}
-
-        .command-table {{
-            margin: 2rem 0;
-        }}
-
-        .param-table td:nth-child(1) {{
-            width: 120px;
-            font-weight: 500;
-            color: #e67e22;
-        }}
-
-        .warning {{
-            color: #e74c3c;
-            padding: 1rem;
-            background: #fdeded;
-            border-radius: 6px;
-            margin: 1rem 0;
-        }}
-
-        .example {{
-            position: relative;
-            margin: 1.5rem 0;
-        }}
-
-        .example::before {{
-            content: "🖼️ 示例";
-            display: block;
-            color: #3498db;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🎨 ComfyUI 绘图插件文档</h1>
-
-        <section class="basic-commands">
-            <h2>基础命令</h2>
-            <div class="warning">
-                ⚠️ 默认不支持中文提示词，必须包含至少1个正向提示词
-                ⚠️ 提示词中如果包含单引号, 需要用双引号括起来, 例如 prompt "girl's"
-            </div>
-            
-            <pre><code>prompt [正面提示词] [参数]</code></pre>
-            <pre><code>查看工作流 ,  查看工作流 flux (查看带有flux的工作流), 查看工作流 1 查看1号工作流(按顺序)</code></pre>
-
-            <h3>核心参数表</h3>
-            <table class="param-table">
-                <tr>
-                    <th>参数</th>
-                    <th>类型</th>
-                    <th>说明</th>
-                    <th>默认值</th>
-                </tr>
-                <tr>
-                    <td>-u</td>
-                    <td>str/td>
-                    <td>负面提示词</td>
-                    <td>无</td>
-                </tr>
-                <tr>
-                    <td>--ar</td>
-                    <td>str</td>
-                    <td>画幅比例 (如 16:9)</td>
-                    <td>1:1</td>
-                </tr>
-                <tr>
-                    <td>-s</td>
-                    <td>int</td>
-                    <td>种子</td>
-                    <td>随机整数</td>
-                </tr>
-                                <tr>
-                    <td>-t</td>
-                    <td>int</td>
-                    <td>迭代步数</td>
-                    <td>28</td>
-                </tr>
-                                <tr>
-                    <td>--cfg</td>
-                    <td>float</td>
-                    <td>CFG scale</td>
-                    <td>7.0</td>
-                </tr>
-                                <tr>
-                    <td>-n</td>
-                    <td>float</td>
-                    <td>去噪强度</td>
-                    <td>1.0</td>
-                </tr>
-                                <tr>
-                    <td>-高</td>
-                    <td>int</td>
-                    <td>图像高度</td>
-                    <td>1216</td>
-                </tr>
-                                <tr>
-                    <td>-宽</td>
-                    <td>int</td>
-                    <td>图像宽度</td>
-                    <td>832</td>
-                </tr>
-                                <tr>
-                    <td>-wf</td>
-                    <td>str</td>
-                    <td>选择工作流</td>
-                    <td>None</td>
-                </tr>
-                                <tr>
-                    <td>-sp</td>
-                    <td>str</td>
-                    <td>采样器</td>
-                    <td>euler</td>
-                </tr>
-                <tr>
-                    <td>-sch</td>
-                    <td>str</td>
-                    <td>调度器</td>
-                    <td>normal</td>
-                </tr>
-                                <tr>
-                    <td>-b</td>
-                    <td>int</td>
-                    <td>每批数量</td>
-                    <td>1</td>
-                </tr>
-                                <tr>
-                    <td>-bc</td>
-                    <td>int</td>
-                    <td>生成几批</td>
-                    <td>1</td>
-                </tr>
-                                <tr>
-                    <td>-m</td>
-                    <td>str</td>
-                    <td>模型</td>
-                    <td>None</td>
-                </tr>
-                                <tr>
-                    <td>-o</td>
-                    <td>bool</td>
-                    <td>不使用内置正面提示词</td>
-                    <td>False</td>
-                </tr>
-                                <tr>
-                    <td>-on</td>
-                    <td>bool</td>
-                    <td>不使用内置负面提示词</td>
-                    <td>False</td>
-                </tr>
-                                <tr>
-                    <td>-be</td>
-                    <td>str</td>
-                    <td>选择指定的后端索引(从0开始)/url</td>
-                    <td>0</td>
-                </tr>
-                                                <tr>
-                    <td>-f</td>
-                    <td>bool</td>
-                    <td>发送为转发消息</td>
-                    <td>False</td>
-                </tr>
-                                                <tr>
-                    <td>-gif</td>
-                    <td>bool</td>
-                    <td>将gif图片输入工作流</td>
-                    <td>False</td>
-                </tr>
-                                                <tr>
-                    <td>-con</td>
-                    <td>bool</td>
-                    <td>并发生图</td>
-                    <td>False</td>
-                <tr>
-                    <td>-shape</td>
-                    <td>str</td>
-                    <td>使用预设分辨率, 有{shape_str}</td>
-                    <td>False</td>
-                </tr>
-                </tr>
-            </table>5
-        </section>
-
-        <section class="advanced-commands">
-            <h2>高级命令</h2>
-            <h3>注册命令列表</h3>
-            <pre><code>{'<br>'.join(reg_command) if reg_command else '暂未注册额外命令'}</code></pre>
-
-            <div class="command-table">
-                <h3>完整参数示例</h3>
-                <pre><code>prompt "a girl, masterpiece, 8k" -u "badhand, blurry" --ar 3:4 -s 123456 --steps 25 --cfg 7.5 -高 768 -宽 512</code></pre>
-            </div>
-        </section>
-
-        <section class="queue-management">
-            <h2>队列管理命令 - queue</h2>
-            <table>
-                <tr>
-                    <td><code>-get</code></td>
-                    <td>后接任务的id/URL</td>
-                    <td><code>queue -get ... -be 0</code></td>
-                </tr>
-                <tr>
-                    <td><code>-be</code></td>
-                    <td>指定后端索引/URL</td>
-                    <td><code>queue -get ... -be 0</code></td>
-                </tr>
-                                <tr>
-                    <td><code>-t</code></td>
-                    <td>追踪后端当前所有的任务id/URL</td>
-                    <td><code>queue -be 0 -t ....</code></td>
-                </tr>
-                                <tr>
-                    <td><code>-d</code></td>
-                    <td>需要删除的任务id/URL</td>
-                    <td><code>queue -d ... -be 0</code></td>
-                </tr>
-                                <tr>
-                    <td><code>-c</code></td>
-                    <td>清除后端上的所有任务/URL</td>
-                    <td><code>queue -c ... -be 0</code></td>
-                </tr>
-                                <tr>
-                    <td><code>-i</code></td>
-                    <td>需要查询的任务id/URL</td>
-                    <td><code>queue -i ... -be 0</code></td>
-                </tr>
-                                <tr>
-                    <td><code>-v</code></td>
-                    <td>查看历史任务, 配合-index使用/URL</td>
-                    <td><code>queue -v -index 0-20 -be 0 (获取前20个任务id)
-</code></td>
-                </tr>
-                                <tr>
-                    <td><code>-stop</code></td>
-                    <td>停止当前生成/URL</td>
-                    <td><code>queue -stop -be 0</code></td>
-                </tr>
-            </table>
-        </section>
         
-        <section class="queue-management">
-            <h2>查询后端节点 - capi</h2>
-            <table>
-                <tr>
-                    <td><code>-get</code></td>
-                    <td>需要查看的节点信息, 例如 capi -get all -be 0 (获取所有节点名称)</td>
-                    <td><code>capi -get "KSampler" -be 0 (获取KSampler节点的信息)</code></td>
-                </tr>
-                <tr>
-                    <td><code>-be</code></td>
-                    <td>指定后端索引/URL</td>
-                    <td><code>capi -get ... -be 0</code></td>
-                </tr>
-            </table>
-        </section>
+    template_data = {
+        "reg_commands": reg_command,
+        "parameters": [
+            {"flag": "-u", "description": "负面提示词", "example": "prompt -u '低质量'"},
+            {"flag": "--ar", "description": "画幅比例", "example": "prompt --ar 16:9"},
+            {"flag": "-s", "description": "种子", "example": "prompt -s 12345"},
+            {"flag": "--steps", "description": "采样步数", "example": "prompt --steps 50"},
+            {"flag": "--cfg", "description": "CFG scale", "example": "prompt --cfg 7.5"},
+            {"flag": "-n", "description": "去噪强度", "example": "prompt -n 0.75"},
+            {"flag": "-高", "description": "高度", "example": "prompt -高 512"},
+            {"flag": "-宽", "description": "宽度", "example": "prompt -宽 768"},
+            {"flag": "-wf", "description": "工作流", "example": "prompt -wf workflow"},
+            {"flag": "-sp", "description": "采样器", "example": "prompt -sp euler_a"},
+            {"flag": "-sch", "description": "调度器", "example": "prompt -sch karras"},
+            {"flag": "-b", "description": "每批数量(一次生成几张)", "example": "prompt -b 2"},
+            {"flag": "-bc", "description": "生成几批(生成几次)", "example": "prompt -bc 4"},
+            {"flag": "-m", "description": "模型", "example": "prompt -m model.ckpt"},
+            {"flag": "-o", "description": "不使用内置正面提示词", "example": "prompt -o"},
+            {"flag": "-on", "description": "不使用内置负面提示词", "example": "prompt -on"},
+            {"flag": "-be", "description": "选择指定的后端索引(从0开始)/url", "example": "prompt -be 1"},
+            {"flag": "-f", "description": "发送为转发消息", "example": "prompt -f"},
+            {"flag": "-gif", "description": "将gif图片输入工作流", "example": "prompt -gif"},
+            {"flag": "-con", "description": "并发使用多后端生图, 和-bc一起使用", "example": "prompt -con -bc 3"},
+            {"flag": "-r", "description": "自定义的比例字符串, 可以在画幅预设中查看", "example": "prompt -r 512x512 / prompt -r p"},
+        ],
+        "shape_presets": [
+            {"name": k, "width": v[0], "height": v[1]} 
+            for k, v in config.comfyui_shape_preset.items()
+        ],
+        "queue_params": [
+            {
+                "flag": "-be",
+                "description": "需要查看队列的后端索引或者URL(不添加默认0)",
+                "example": "queue -get bedadef6-269c-43f4-9be4-0e5b07061233 -be 0"
+            },
+            {
+                "flag": "-t",
+                "description": "追踪后端当前所有的任务id",
+                "example": "queue -t -be 'http://127.0.0.1:8288'"
+            },
+            {
+                "flag": "-d",
+                "description": "需要删除的任务id",
+                "example": "queue -d bedadef6-269c-43f4-9be4-0e5b07061233 -be 0"
+            },
+            {
+                "flag": "-c",
+                "description": "清除后端上的所有任务",
+                "example": "queue -c -be 0"
+            },
+            {
+                "flag": "-i",
+                "description": "需要查询的任务id",
+                "example": "queue -i bedadef6-269c-43f4-9be4-0e5b07061233 -be 0"
+            },
+            {
+                "flag": "-v",
+                "description": "查看历史任务, 配合-index使用",
+                "example": "queue -v -index 0-20 -be 0"
+            },
+            {
+                "flag": "-get",
+                "description": "后接任务的id",
+                "example": "queue -get bedadef6-269c-43f4-9be4-0e5b07061233 -be 0"
+            },
+            {
+                "flag": "-stop",
+                "description": "停止当前生成",
+                "example": "queue -stop"
+            }
+        ],
+        "capi_params": [
+            {
+                "flag": "-be",
+                "description": "需要查看节点的后端索引或者URL(不添加默认0)",
+                "example": "capi -be 0 -get all"
+            },
+            {
+                "flag": "-get",
+                "description": "需需要查看的节点信息, 例如 capi -get all -be 0 (获取所有节点名称)",
+                "example": "capi -get KSampler -be 0 (获取KSampler节点的信息)"
+            }
+        ],
+        "version": PLUGIN_VERSION
+    }
 
-        <footer>
-            <p><strong>By:</strong> nonebot-plugin-comfyui</p>
-        </footer>
-    </div>
-</body>
-</html>
-"""
-    return help_text
+    env = Environment(loader=FileSystemLoader(str(PLUGIN_DIR / 'template')))
+    template = env.get_template('help.html')
+    return template.render(**template_data)
 
 
+def get_and_filter_work_flows(search=None, index=None) -> list:
+
+    index = int(index) if index else None
+
+    if not isinstance(search, str):
+        search = None
+
+    wf_files = []
+    for root, dirs, files in os.walk(config.comfyui_workflows_dir):
+        for file in files:
+            if file.endswith('.json') and not file.endswith('_reflex.json'):
+                if search and search in file:
+                    wf_files.append(file.replace('.json', ''))
+                elif not search:
+                    wf_files.append(file.replace('.json', ''))
+
+    if index is not None:
+        if 1 <= index < len(wf_files) + 1:
+            return [wf_files[index-1]]
+        else:
+            return []
+
+    return wf_files

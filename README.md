@@ -78,6 +78,7 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 |     comfyui_audit_local      | bool |  否  |                                                                       False                                                                       |                                  启动本地图片审核                                  |
 |      comfyui_audit_site      | str  |  否  |                                                         "http://server.20020026.xyz:7865"                                                         |                      图片审核地址(使用sd-webui的tagger插件的API)                       |
 |     comfyui_audit_level      | int  |  否  |                                                                         2                                                                         |               审核严格程度, 可选1, 2, 3, 100 数值越大审核越严格, 100为只返回图片到私聊               |
+|     comfyui_audit_comp      | bool |  否  |                                                                       False                                                                       |                                 图片审核前压缩分辨率                                 |
 |      comfyui_save_image      | bool |  否  |                                                                       True                                                                        |                      是否保存媒体文件到本地(机器人路径/data/comfyui)                       |
 |          comfyui_cd          | int  |  否  |                                                                        20                                                                         |                                    绘画cd                                    |
 |      comfyui_day_limit       | int  |  否  |                                                                        50                                                                         |                            每天能画几次/多少秒(重启机器人会重置)                            |
@@ -99,6 +100,7 @@ comfyui_audit = true
 comfyui_audit_local = false
 comfyui_audit_site = "http://server.20020026.xyz:7865"
 comfyui_audit_level = 2
+comfyui_audit_comp = false
 comfyui_save_image = true
 comfyui_cd = 20
 comfyui_day_limit = 20
@@ -109,10 +111,7 @@ comfyui_shape_preset = {"p": (832, 1216),"l": (1216, 832),"s": (1024, 1024),"lp"
 
 ## 关键!
 **comfyui_url**和**comfyui_workflows_dir**是必须的, 否则插件无法正常工作
-# 重要!
-### 关于comfyui_workflows_dir路径下的工作流格式
-### 请导出工作流的时候选择导出为API格式!
-## [重要!插件基础芝士](./docs/md/node_control.md)
+# [重要!插件基础芝士](./docs/md/node_control.md)
 ## 一些小trick
 ## [trick](./docs/md/trick.md)
 
@@ -147,12 +146,13 @@ comfyui_shape_preset = {"p": (832, 1216),"l": (1216, 832),"s": (1024, 1024),"lp"
 - [x] 支持本地审核图像啦
 
 ## 更新日志
-### 2025.02.22 0.6.1
-- 新的参数 -shape , 预设分辨率(comfyui_shape_preset), 可以使用此参数来快速更改分辨率
-- 优化了查看工作流命令
+### 2025.02.24 0.7.0
+- 新的参数 -shape / -r  , 预设分辨率(comfyui_shape_preset), 可以使用此参数来快速更改分辨率 (-r 640x640 / -r p)
+- 优化了查看工作流命令以及帮助菜单
 - 返回帮助菜单的时候会返回一个基础使用教程
-- 添加了审核严格程度, comfyui_audit_level 
+- 添加了审核严格程度, comfyui_audit_level, comfyui_audit_comp (是否压缩审核图片) 
 - 优化了一些代码结构
+- 优化多后端,  新的reflex参数 available, 见 [后端 - 工作流可用性](./docs/md/node_control.md#后端-工作流可用性)
 ### 2025.02.15 0.6
 - 支持音频输出
 - 新的 -gif 参数 / 不加上它输入gif图片的时候默认截取第一帧

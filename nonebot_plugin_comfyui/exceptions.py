@@ -57,3 +57,11 @@ class ComfyuiExceptions(BaseException):
     class TaskError(Exception):
         def __init__(self, message="任务出错"):
             super().__init__(message)
+            
+    class WorkflowNotAvailableInSelectedBackend(Exception):
+        def __init__(self, message="所选的工作流不支持在所选后端上执行"):
+            super().__init__(message)
+            
+    class NoAvailableBackendForSelectedWorkflow(Exception):
+        def __init__(self, message="目前没有可运行所选的工作流的后端"):
+            super().__init__(message)

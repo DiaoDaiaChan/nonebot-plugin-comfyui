@@ -114,6 +114,14 @@ class ComfyuiHelp:
             reg_preset_str = wf.get('reg_args')
             reg_preset_table = await self.get_reg_preset_table(reg_preset_str)
 
+            available_str = wf.get('available', [])
+            available = ''
+            if available_str:
+                for be in available_str:
+                    available += str(be) + ','
+
+                available += '号后端可用'
+
             with open(PLUGIN_DIR / 'template' / 'row_template.html', 'r', encoding='utf-8') as f:
                 row_template = f.read()
 
@@ -128,7 +136,8 @@ class ComfyuiHelp:
                 reg_command=reg_command,
                 reg_args_table=reg_args_table,
                 reg_preset_table=reg_preset_table,
-                note=note
+                note=note,
+                available=available
             )
             tbody_rows.append(row)
 

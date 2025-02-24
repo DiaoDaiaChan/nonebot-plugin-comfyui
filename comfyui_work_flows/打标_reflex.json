@@ -3,5 +3,6 @@
   "output": 87,
   "command": "2打标",
   "load_image": 85,
-  "note": "使用wd-tagger插件为图片打标"
+  "note": "使用wd-tagger插件为图片打标",
+  "available": [0, 1]
 }

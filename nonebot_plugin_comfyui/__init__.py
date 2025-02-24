@@ -1,7 +1,40 @@
-from .config import Config
-from .command import *
+import sys
+import subprocess
+
+from .config import Config, config
+from nonebot.plugin import require, PluginMetadata, inherit_supported_adapters
 
 require("nonebot_plugin_alconna")
+require("nonebot_plugin_htmlrender")
+
+from .command import *
+
+if config.comfyui_audit_local:
+    from nonebot import logger
+    try:
+        import pandas as pd
+        import numpy as np
+        import huggingface_hub
+        import onnxruntime
+    except ModuleNotFoundError:
+        logger.info("正在安装本地审核需要的依赖和模型")
+        subprocess.run([sys.executable, "-m", "pip", "install", "pandas", "numpy", "pillow", "huggingface_hub"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "onnxruntime"])
+
+    logger.info("正在本地审核加载实例")
+    from .backend.wd_audit import WaifuDiffusionInterrogator
+
+    wd_instance = WaifuDiffusionInterrogator(
+        name='WaifuDiffusion',
+        repo_id="SmilingWolf/wd-vit-tagger-v3",
+        revision='v2.0',
+        model_path='model.onnx',
+        tags_path='selected_tags.csv'
+    )
+
+    wd_instance.load()
+    logger.info("模型加载成功")
+
 
 __plugin_meta__ = PluginMetadata(
     name="Comfyui绘图插件",

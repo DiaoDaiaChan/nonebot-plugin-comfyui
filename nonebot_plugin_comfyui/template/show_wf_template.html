@@ -28,16 +28,16 @@
             table-layout: auto;  /* 自动列宽分配 */
         }
         /* 列宽精确分配 */
-        th:nth-child(1), td:nth-child(1) { width: 4%; }    /* 序号 */
-        th:nth-child(2), td:nth-child(2) { width: 15%; }    /* 输出类型 */
-        th:nth-child(3), td:nth-child(3) { width: 16%; }   /* 工作流名称 */
-        th:nth-child(4), td:nth-child(4) { width: 8%; }    /* 需图片输入 */
-        th:nth-child(5), td:nth-child(5) { width: 7%; }   /* 图片数量 */
-        th:nth-child(6), td:nth-child(6) { width: 11%; }  /* 覆写设置 */
-        th:nth-child(7), td:nth-child(7) { width: 14%; }  /* 注册命令 */
-        th:nth-child(8), td:nth-child(8) { width: 13%; }  /* 注册参数 */
-        th:nth-child(9), td:nth-child(9) { width: 12%; }  /* 注册预设 */
-        th:nth-child(10), td:nth-child(10) { width: 16%; } /* 备注说明 */
+        th:nth-child(1), td:nth-child(1) { width: 4%; }
+        th:nth-child(2), td:nth-child(2) { width: 15%; }
+        th:nth-child(3), td:nth-child(3) { width: 16%; }
+        th:nth-child(4), td:nth-child(4) { width: 8%; }
+        th:nth-child(5), td:nth-child(5) { width: 20%; }
+        th:nth-child(6), td:nth-child(6) { width: 11%; }
+        th:nth-child(7), td:nth-child(7) { width: 14%; }
+        th:nth-child(8), td:nth-child(8) { width: 13%; }
+        th:nth-child(9), td:nth-child(9) { width: 12%; }
+        th:nth-child(10), td:nth-child(10) { width: 10%; }
 
         th, td {
             padding: 14px 18px;         /* 加大单元格内边距 */
@@ -99,14 +99,16 @@
                 <tr>
                     <th>#</th>
                     <th>输出类型</th>
+                    <th>注册命令/调用命令</th>
                     <th>工作流名称</th>
+                    <th>备注说明</th>
+                    <th>后端可用性</th>
                     <th>需图片输入</th>
                     <th>图片数量</th>
                     <th>覆写设置</th>
-                    <th>注册命令</th>
                     <th>注册参数</th>
                     <th>注册预设</th>
-                    <th>备注说明</th>
+
                 </tr>
             </thead>
             <tbody>

@@ -1,7 +1,6 @@
 import copy
 import json
 import random
-import time
 import traceback
 import uuid
 import os
@@ -26,7 +25,7 @@ from itertools import islice, zip_longest
 
 from ..config import config
 from nonebot_plugin_alconna import UniMessage
-from .utils import pic_audit_standalone, run_later, send_msg_and_revoke
+from .utils import pic_audit_standalone, run_later, send_msg_and_revoke, get_and_filter_work_flows
 from ..exceptions import ComfyuiExceptions
 
 MAX_SEED = 2 ** 31
@@ -34,7 +33,7 @@ MAX_SEED = 2 ** 31
 OTHER_ACTION = {
     "override", "note", "presets", "media",
     "command", "reg_args", "visible", "output_prefix",
-    "daylimit", "lora"
+    "daylimit", "lora", "available"
 }
 
 __OVERRIDE_SUPPORT_KEYS__ = {
@@ -53,25 +52,64 @@ __OVERRIDE_SUPPORT_KEYS__ = {
 
 MODIFY_ACTION = {"output", "reg_args"}
 
+BACKEND_URL_LIST = config.comfyui_url_list
+
+reflex_dict = {'sampler': {
+            "DPM++ 2M": "dpmpp_2m",
+            "DPM++ SDE": "dpmpp_sde",
+            "DPM++ 2M SDE": "dpmpp_2m_sde",
+            "DPM++ 2M SDE Heun": "dpmpp_2m_sde",
+            "DPM++ 2S a": "dpmpp_2s_ancestral",
+            "DPM++ 3M SDE": "dpmpp_3m_sde",
+            "Euler a": "euler_ancestral",
+            "Euler": "euler",
+            "LMS": "lms",
+            "Heun": "heun",
+            "DPM2": "dpm_2",
+            "DPM2 a": "dpm_2_ancestral",
+            "DPM fast": "dpm_fast",
+            "DPM adaptive": "dpm_adaptive",
+            "Restart": "restart",
+            "HeunPP2": "heunpp2",
+            "IPNDM": "ipndm",
+            "IPNDM_V": "ipndm_v",
+            "DEIS": "deis",
+            "DDIM": "ddim",
+            "DDIM CFG++": "ddim",
+            "PLMS": "plms",
+            "UniPC": "uni_pc",
+            "LCM": "lcm",
+            "DDPM": "ddpm",
+        }, 'scheduler': {
+            "Automatic": "normal",
+            "Karras": "karras",
+            "Exponential": "exponential",
+            "SGM Uniform": "sgm_uniform",
+            "Simple": "simple",
+            "Normal": "normal",
+            "ddDDIM": "ddim_uniform",
+            "Beta": "beta"
+        }
+        }
+
 
 class RespMsg:
+    
+    def __init__(self, task_id: str = "", backend_url: str = ""):
+        self.task_id = task_id
+        self.backend_url: str = backend_url
+        self.backend_index: int = BACKEND_URL_LIST.index(backend_url) if backend_url in BACKEND_URL_LIST else -1
+        
+        self.error_msg: str = ''
+        self.resp_text: str = ''
 
-    task_id: str = '1'
-    backend_url: str = ''
-    backend_index: int = 0
+        self.resp_img = ''
+        self.resp_video: list = []
+        self.resp_audio: list = []
+        self.media_url: dict = {}
 
-    error_msg: str = ''
-    resp_text: str = ''
-
-    resp_img = ''
-    resp_video: list = []
-    resp_audio: list = []
-    media_url: dict = {}
-
-    image_byte = []
-
-    # {'image': [{"bytes": image, "is_nsfw": True}]}
-
+        self.image_byte = []
+        
 
 class ComfyuiTaskQueue:
 
@@ -95,7 +133,7 @@ class ComfyuiTaskQueue:
 
         self.selected_backend = backend
         if backend is not None and backend.isdigit():
-            self.backend_url = config.comfyui_url_list[int(backend)]
+            self.backend_url = BACKEND_URL_LIST[int(backend)]
         else:
             self.backend_url = backend
 
@@ -133,31 +171,6 @@ class ComfyuiTaskQueue:
         task_status_dict = cls.all_task_dict.get(task_id, {})
 
         return task_status_dict
-
-
-def get_and_filter_work_flows(search=None, index=None) -> list:
-
-    index = int(index) if index else None
-
-    if not isinstance(search, str):
-        search = None
-
-    wf_files = []
-    for root, dirs, files in os.walk(config.comfyui_workflows_dir):
-        for file in files:
-            if file.endswith('.json') and not file.endswith('_reflex.json'):
-                if search and search in file:
-                    wf_files.append(file.replace('.json', ''))
-                elif not search:
-                    wf_files.append(file.replace('.json', ''))
-
-    if index is not None:
-        if 1 <= index < len(wf_files) + 1:
-            return [wf_files[index-1]]
-        else:
-            return []
-
-    return wf_files
 
 
 class ComfyUIQueue:
@@ -206,43 +219,7 @@ class ComfyUI:
     ):
 
         # 映射参数相关
-        self.reflex_dict = {'sampler': {
-            "DPM++ 2M": "dpmpp_2m",
-            "DPM++ SDE": "dpmpp_sde",
-            "DPM++ 2M SDE": "dpmpp_2m_sde",
-            "DPM++ 2M SDE Heun": "dpmpp_2m_sde",
-            "DPM++ 2S a": "dpmpp_2s_ancestral",
-            "DPM++ 3M SDE": "dpmpp_3m_sde",
-            "Euler a": "euler_ancestral",
-            "Euler": "euler",
-            "LMS": "lms",
-            "Heun": "heun",
-            "DPM2": "dpm_2",
-            "DPM2 a": "dpm_2_ancestral",
-            "DPM fast": "dpm_fast",
-            "DPM adaptive": "dpm_adaptive",
-            "Restart": "restart",
-            "HeunPP2": "heunpp2",
-            "IPNDM": "ipndm",
-            "IPNDM_V": "ipndm_v",
-            "DEIS": "deis",
-            "DDIM": "ddim",
-            "DDIM CFG++": "ddim",
-            "PLMS": "plms",
-            "UniPC": "uni_pc",
-            "LCM": "lcm",
-            "DDPM": "ddpm",
-        }, 'scheduler': {
-            "Automatic": "normal",
-            "Karras": "karras",
-            "Exponential": "exponential",
-            "SGM Uniform": "sgm_uniform",
-            "Simple": "simple",
-            "Normal": "normal",
-            "ddDDIM": "ddim_uniform",
-            "Beta": "beta"
-        }
-        }
+        self.reflex_dict = reflex_dict
 
         self.work_flows = None
 
@@ -313,7 +290,7 @@ class ComfyUI:
         self.backend_url: str = ""
 
         if backend is not None and backend.isdigit():
-            self.backend_url = config.comfyui_url_list[int(backend)]
+            self.backend_url = BACKEND_URL_LIST[int(backend)]
             self.selected_backend = self.backend_url
         elif backend is not None and not backend.isdigit():
             self.backend_url = backend
@@ -323,10 +300,11 @@ class ComfyUI:
 
         self.backend_index: int = 0
         self.backend_task: dict = {}
-        self.concurrency = concurrency  # 并发生图
+        self.available_backends: set[int] = set({})
+        self.concurrency = concurrency
 
         # 用户相关
-        self.client_id = uuid.uuid4().hex
+        self.client_id = None
         self.user_id = self.nb_event.get_user_id()
         self.task_id = None
         self.adapters = nonebot.get_adapters()
@@ -334,9 +312,6 @@ class ComfyUI:
 
         self.init_images = []
         self.unimessage = UniMessage.text('')
-
-        self.text: str = ""  # 储存错误信息
-        self.text_msg: list[str] = []  #
         self.input_image = False  # 是否需要输入图片
 
         self.resp_msg: RespMsg = RespMsg()
@@ -480,20 +455,13 @@ class ComfyUI:
         global output_error_msg
         build_error_msg = ''
 
-        resp_msg = RespMsg()
-
-        resp_msg.backend_url = backend_url
-        resp_msg.task_id = task_id
-        resp_msg.backend_index = config.comfyui_url_list.index(backend_url)
+        resp_msg = RespMsg(task_id, backend_url)
 
         images_url = []
         video_url = []
         audio_url = []
 
         media_url = {}
-
-        # if self.interrupt:
-        #     raise ComfyuiExceptions.InterruptError
 
         response: dict = await self.http_request(
             method="GET",
@@ -803,57 +771,58 @@ class ComfyUI:
         await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
         self.comfyui_api_json = api_json
 
-    async def heart_beat(self, backend_task: dict):
+    async def track_single_task(self, backend_url: str, task_id: str, client_id: str):
+        logger.info(f"任务: {task_id} 开始跟踪 At {client_id} client ID")
+        progress_bar = None
 
-        async def track_single_task(backend_url: str, task_id: str):
-            logger.info(f"{task_id} 开始请求")
-            progress_bar = None
+        try:
+            async with aiohttp.ClientSession() as session:
+                ws_url = f'{backend_url}/ws?clientId={client_id}'
+                async with session.ws_connect(ws_url) as ws:
+                    self.current_task[backend_url] = task_id
+                    logger.debug(f"WS连接成功: {ws_url}")
 
-            try:
-                async with aiohttp.ClientSession() as session:
-                    ws_url = f'{backend_url}/ws?clientId={self.client_id}'
-                    async with session.ws_connect(ws_url) as ws:
-                        self.current_task[backend_url] = task_id
-                        logger.debug(f"WS连接成功: {ws_url}")
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            ws_msg = json.loads(msg.data)
 
-                        async for msg in ws:
-                            if msg.type == aiohttp.WSMsgType.TEXT:
-                                ws_msg = json.loads(msg.data)
+                            if ws_msg['type'] == 'progress' and task_id == ws_msg['data']['prompt_id']:
+                                value = ws_msg['data']['value']
+                                max_value = ws_msg['data']['max']
 
-                                if ws_msg['type'] == 'progress':
-                                    value = ws_msg['data']['value']
-                                    max_value = ws_msg['data']['max']
+                                if not progress_bar:
+                                    progress_bar = await asyncio.to_thread(
+                                        tqdm, total=max_value,
+                                        desc=f"[{backend_url}] Prompt ID: {ws_msg['data']['prompt_id']}",
+                                        unit="steps"
+                                    )
 
-                                    if not progress_bar:
-                                        progress_bar = await asyncio.to_thread(
-                                            tqdm, total=max_value,
-                                            desc=f"[{backend_url}] Prompt ID: {ws_msg['data']['prompt_id']}",
-                                            unit="steps"
-                                        )
+                                delta = value - progress_bar.n
+                                await asyncio.to_thread(progress_bar.update, delta)
 
-                                    delta = value - progress_bar.n
-                                    await asyncio.to_thread(progress_bar.update, delta)
-
-                                elif ws_msg['type'] == 'executing' and not ws_msg['data']['node']:
-                                    logger.info(f"{task_id} 执行完成完成!")
-                                    self.resp_msg_list += [await self.get_media(task_id, backend_url)]
-                                    await ws.close()
-
-                            elif msg.type == aiohttp.WSMsgType.ERROR:
-                                logger.error(f"{task_id} 发生错误: {msg.data}")
+                            elif ws_msg['type'] == 'executing' and ws_msg['data']['node'] is None:
+                                logger.info(f"{task_id} 执行完成完成!")
+                                # 获取返回的文件url
+                                self.resp_msg_list += [await self.get_media(task_id, backend_url)]
                                 await ws.close()
-                                break
-            finally:
-                if progress_bar:
-                    await asyncio.to_thread(progress_bar.close)
-                self.current_task.pop(backend_url, None)
+                                return
+
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            logger.error(f"{task_id} 发生错误: {msg.data}")
+                            await ws.close()
+                            break
+        finally:
+            if progress_bar:
+                await asyncio.to_thread(progress_bar.close)
+            self.current_task.pop(backend_url, None)
+
+    async def heart_beat(self, backend_task: list):
 
         tasks = []
-        for backend_url, tasks_id in backend_task.items():
-            for task_id in tasks_id:
-                tasks.append(asyncio.create_task(
-                    track_single_task(backend_url, task_id)
-                ))
+        for backend_url, task_id, client_id in backend_task:
+            tasks.append(asyncio.create_task(
+                self.track_single_task(backend_url, task_id, client_id)
+            ))
 
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -861,7 +830,12 @@ class ComfyUI:
 
         if self.backend_url is None:
             raise ComfyuiExceptions.NoAvailableBackendError
-
+        
+        try:
+            await self.get_workflows_json()
+        except FileNotFoundError:
+            raise ComfyuiExceptions.ReflexJsonNotFoundError
+        
         if self.concurrency is False:
 
             await self.select_backend()
@@ -869,35 +843,23 @@ class ComfyUI:
             for i in range(self.batch_count):
 
                 self.seed += 1
-                await self.posting()
-                await self.heart_beat({self.backend_url: [self.task_id]})
+                task_info = await self.posting()
+                await self.heart_beat([task_info])
 
         else:
-            backend_taskid = {}
+            task_info_list = []
             for i in range(self.batch_count):
-
                 self.seed += 1
-                backend_url = await self.select_backend()
-                task_id = await self.posting()
+                await self.select_backend()
+                task_info = await self.posting()
+                task_info_list.append(task_info)
 
-                if backend_taskid.get(backend_url, []):
-                    old_task_list = backend_taskid[backend_url]
-                    old_task_list.append(task_id)
-                    backend_taskid[backend_url] = old_task_list
-
-                backend_taskid[backend_url] = [task_id]
-
-            await self.heart_beat(backend_taskid)
+            await self.heart_beat(task_info_list)
 
         self.resp_msg_list = [item for item in self.resp_msg_list if item is not None]
         await self.download_img()
 
     async def posting(self):
-
-        try:
-            await self.get_workflows_json()
-        except FileNotFoundError:
-            raise ComfyuiExceptions.ReflexJsonNotFoundError
 
         if self.reflex_json.get('override', None):
             self.override_backend_setting_dict = self.reflex_json['override']
@@ -925,6 +887,7 @@ class ComfyUI:
 
         await self.update_api_json(upload_img_resp_list)
 
+        self.client_id = uuid.uuid4().hex
         input_ = {
             "client_id": self.client_id,
             "prompt": self.comfyui_api_json
@@ -947,8 +910,6 @@ class ComfyUI:
 
         await ComfyuiTaskQueue(backend=self.backend_url, event=self.nb_event).set_user_task(self.user_id, self.task_id)
 
-        self.backend_index = config.comfyui_url_list.index(self.backend_url)
-
         queue_ = self.backend_task.get(self.backend_url, None)
         if queue_:
             remain_task = queue_['exec_info']['queue_remaining']
@@ -962,7 +923,7 @@ class ComfyUI:
             reply_to=True
         )
 
-        return task_id
+        return self.backend_url, task_id, self.client_id
 
     @staticmethod
     async def http_request(
@@ -1136,44 +1097,34 @@ class ComfyUI:
             is_nsfw = await pic_audit_standalone(file_bytes, return_bool=True)
             return (resp_, is_nsfw, file_bytes)
 
-        if config.comfyui_audit and 'OneBot V11' in self.adapters:
-            from nonebot.adapters.onebot.v11 import PrivateMessageEvent
+        if config.comfyui_audit:
+            if 'OneBot V11' in self.adapters:
+                from nonebot.adapters.onebot.v11 import PrivateMessageEvent
 
-            for resp_ in self.resp_msg_list:
-                task_id = resp_.task_id
-                media_list = media_bytes.get(task_id, [])
-                for media in media_list:
-                    for file_type, (file_bytes, file_format) in media.items():
-                        if isinstance(self.nb_event, PrivateMessageEvent):
-                            other_media.append((resp_, file_type, file_bytes))
-                        else:
-                            if file_type == "image":
-                                task = audit_image_task(resp_, file_bytes)
-                                audit_tasks.append(task)
-                            else:
+                for resp_ in self.resp_msg_list:
+                    task_id = resp_.task_id
+                    media_list = media_bytes.get(task_id, [])
+                    for media in media_list:
+                        for file_type, (file_bytes, file_format) in media.items():
+                            if isinstance(self.nb_event, PrivateMessageEvent):
                                 other_media.append((resp_, file_type, file_bytes))
+                            else:
+                                if file_type == "image":
+                                    task = audit_image_task(resp_, file_bytes)
+                                    audit_tasks.append(task)
+                                else:
+                                    other_media.append((resp_, file_type, file_bytes))
 
-            if audit_tasks:
-                audit_results = await asyncio.gather(*audit_tasks)
-                for resp_, is_nsfw, file_bytes in audit_results:
-                    if is_nsfw:
-                        resp_.resp_img += "\n这张图太涩了,私聊发给你了哦!"
-                        await self.send_nsfw_image_to_private(file_bytes)
-                    else:
-                        resp_.resp_img += UniMessage.image(raw=file_bytes)
+                if audit_tasks:
+                    audit_results = await asyncio.gather(*audit_tasks)
+                    for resp_, is_nsfw, file_bytes in audit_results:
+                        if is_nsfw:
+                            resp_.resp_img += "\n这张图太涩了,私聊发给你了哦!"
+                            await self.send_nsfw_image_to_private(file_bytes)
+                        else:
+                            resp_.resp_img += UniMessage.image(raw=file_bytes)
 
-            for resp_, file_type, file_bytes in other_media:
-                if file_type == "image":
-                    resp_.resp_img += UniMessage.image(raw=file_bytes)
-                elif file_type == "video":
-                    await run_later(UniMessage.video(raw=file_bytes).send())
-                elif file_type == "audio":
-                    await run_later(UniMessage.audio(raw=file_bytes).send())
-
-        else:
-            for media, resp_ in zip(media_bytes, self.resp_msg_list):
-                for file_type, (file_bytes, file_format) in media.items():
-
+                for resp_, file_type, file_bytes in other_media:
                     if file_type == "image":
                         resp_.resp_img += UniMessage.image(raw=file_bytes)
                     elif file_type == "video":
@@ -1181,34 +1132,54 @@ class ComfyUI:
                     elif file_type == "audio":
                         await run_later(UniMessage.audio(raw=file_bytes).send())
 
+        else:
+            for resp_ in self.resp_msg_list:
+                media_list = media_bytes.get(resp_.task_id, [])
+                for media in media_list:
+                    for file_type, (file_bytes, file_format) in media.items():
+                        if file_type == "image":
+                            resp_.resp_img += UniMessage.image(raw=file_bytes)
+                        elif file_type == "video":
+                            await run_later(UniMessage.video(raw=file_bytes).send())
+                        elif file_type == "audio":
+                            await run_later(UniMessage.audio(raw=file_bytes).send())
+
     async def get_backend_work_status(self, url):
 
         resp = await self.http_request("GET", target_url=f"{url}/prompt", timeout=config.comfyui_timeout)
         return resp
 
     async def select_backend(self):
+        backend_dict = {}
+        fastest_backend_index = None
+        # 手动选择后端
+        if self.selected_backend:
 
-        try:
+            if self.selected_backend not in BACKEND_URL_LIST:
+                self.backend_index = -1
+                return self.selected_backend
 
-            backend_dict = {}
+        task_list = []
+        for task in BACKEND_URL_LIST:
+            task_list.append(self.get_backend_work_status(task))
 
-            if self.selected_backend:
-                resp = await self.get_backend_work_status(self.selected_backend)
-                self.backend_task.update({self.selected_backend: resp})
-                return
+        resp = await asyncio.gather(*task_list, return_exceptions=True)
 
-            task_list = []
-            for task in config.comfyui_url_list:
-                task_list.append(self.get_backend_work_status(task))
+        for i, backend_url in zip(resp, BACKEND_URL_LIST):
+            backend_index = BACKEND_URL_LIST.index(backend_url)
+            if isinstance(i, Exception):
+                logger.warning(f"后端 {backend_url} 掉线")
+                if backend_index in self.available_backends:
+                    self.available_backends.remove(backend_index)
+            else:
+                backend_dict[backend_url] = i
+                self.available_backends.add(backend_index)
+        # 手动选择后端
+        if self.selected_backend:
+            if self.selected_backend in backend_dict:
+                self.backend_task.update({self.selected_backend: backend_dict[self.selected_backend]})
 
-            resp = await asyncio.gather(*task_list, return_exceptions=True)
-
-            for i, backend_url in zip(resp, config.comfyui_url_list):
-                if isinstance(i, Exception):
-                    logger.warning(f"后端 {backend_url} 掉线")
-
-                else:
-                    backend_dict[backend_url] = i
+        else:
 
             fastest_backend = min(
                 backend_dict.items(),
@@ -1221,16 +1192,56 @@ class ComfyUI:
             if fastest_backend_url:
                 logger.info(f"选择的最快后端: {fastest_backend_url}，队列信息: {fastest_backend_info}")
             else:
-                logger.info("没有可用的后端")
+                logger.error("没有可用的后端")
+                raise ComfyuiExceptions.NoAvailableBackendError
 
             self.backend_url = fastest_backend_url
+            fastest_backend_index = BACKEND_URL_LIST.index(fastest_backend_url)
             self.backend_task.update({self.backend_url: fastest_backend_info})
 
-        except:
-            self.backend_url = config.comfyui_url_list[0]
-            return config.comfyui_url_list[0]
+        self.backend_index = BACKEND_URL_LIST.index(self.backend_url)
+
+        available_in = self.reflex_json.get('available', None)
+
+        if available_in:
+            ava_backend_inter = set(available_in).intersection(self.available_backends)
+
+            if not ava_backend_inter:
+                raise ComfyuiExceptions.NoAvailableBackendForSelectedWorkflow
+            else:
+                if self.backend_index in ava_backend_inter:
+                    if fastest_backend_index and fastest_backend_index in ava_backend_inter:
+                        self.backend_url = BACKEND_URL_LIST[fastest_backend_index]
+                    else:
+                        self.backend_url = BACKEND_URL_LIST[random.choice(list(ava_backend_inter))]
+                else:
+                    if self.backend_index in available_in:
+                        await send_msg_and_revoke(
+                            f'警告，所选的后端(索引: {self.backend_index})掉线，无法执行工作流({self.work_flows})，已自动切换',
+                            reply_to=True
+                        )
+                    else:
+                        await send_msg_and_revoke(
+                            f'警告，所选的后端(索引: {self.backend_index})不支持当前工作流({self.work_flows})，已自动切换',
+                            reply_to=True
+                        )
+
+                    if fastest_backend_index and fastest_backend_index in ava_backend_inter:
+                        self.backend_url = BACKEND_URL_LIST[fastest_backend_index]
+                    else:
+                        self.backend_url = BACKEND_URL_LIST[random.choice(list(ava_backend_inter))]
         else:
-            return fastest_backend_url
+            if self.backend_index not in self.available_backends:
+
+                await send_msg_and_revoke(
+                    f'警告, 所选的后端(索引: {self.backend_index})掉线, 已经自动选择到支持的后端',
+                    reply_to=True
+                )
+
+                if fastest_backend_index:
+                    self.backend_url = BACKEND_URL_LIST[fastest_backend_index]
+                else:
+                    self.backend_url = BACKEND_URL_LIST[random.choice(list(self.available_backends))]
 
     def __str__(self):
 

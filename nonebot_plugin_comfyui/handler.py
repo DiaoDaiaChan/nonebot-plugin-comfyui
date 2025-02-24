@@ -6,14 +6,11 @@ from argparse import Namespace
 from itertools import islice
 
 from nonebot import logger, get_bot
-from nonebot.plugin import require
 from nonebot import Bot
 from nonebot.adapters import Event
 from nonebot.params import ShellCommandArgs, Matcher
 
-require("nonebot_plugin_alconna")
 from nonebot_plugin_alconna import UniMessage
-
 from .backend.utils import send_msg_and_revoke, comfyui_generate, get_file_url
 from .config import config
 from .backend import ComfyuiTaskQueue, ComfyUI
@@ -30,6 +27,7 @@ TIPS = [
     "插件帮助菜单中的注册的命令为可以调用的额外命令",
     "查看工作流  ,可以查看所有的工作流;查看工作流 flux ,可以筛选带有flux的工作流",
     "使用-con / -并发 参数进行多后端并发生图"
+    "使用 -r 1216x832 参数, 可用快速设定分辨率"
 ]
 MAX_DAILY_CALLS = config.comfyui_day_limit
 
@@ -76,7 +74,7 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
         logger.warning("版本更新信息获取失败")
     finally:
         TEMP_MSG = True
-
+    # CD部分
     nowtime = datetime.datetime.now().timestamp()
     today_date = datetime.datetime.now().strftime('%Y-%m-%d')  # 获取当前日期
     user_id = event.get_user_id()
@@ -100,6 +98,7 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
         return
 
     cd[user_id] = nowtime
+    # 执行生成
     try:
         comfyui_instance = await comfyui_generate(event, bot, args)
 
@@ -193,7 +192,7 @@ async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespac
 
         await comfyui_instance.download_img()
 
-        comfyui_instance.unimessage = f"这是你要找的任务:\n"
+        comfyui_instance.unimessage += f"这是你要找的任务:\n"
 
     if args.view:
 
