@@ -1,7 +1,8 @@
 from importlib.metadata import version as get_local_version, PackageNotFoundError
 from packaging.version import parse as parse_version
 from datetime import datetime
-from .comfyui import ComfyUI
+from ..backend.utils import http_request
+
 
 package_name = "nonebot-plugin-comfyui"
 
@@ -13,7 +14,7 @@ async def get_recent_commit_messages(num_commits=3):
         "page": 1,
     }
     try:
-        commits = await ComfyUI.http_request("GET", target_url=url, params=params)
+        commits = await http_request("GET", target_url=url, params=params)
         commit_details = []
         for commit in commits:
             commit_data = commit["commit"]
@@ -75,7 +76,7 @@ async def check_package_update():
     local_version = parse_version(get_local_version(package_name))
 
     try:
-        pypi_data = await ComfyUI.http_request(
+        pypi_data = await http_request(
             "GET",
             target_url=f"https://pypi.org/pypi/{package_name}/json",
             headers={"User-Agent": "Python-Package-Version-Checker"},

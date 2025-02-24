@@ -10,7 +10,7 @@ from .handler import comfyui_handler
 from .backend.help import ComfyuiHelp
 from .handler import queue_handler, api_handler
 from .parser import comfyui_parser, api_parser, queue_parser, rebuild_parser
-from .backend.utils import build_help_text
+from .backend.utils import build_help_text, get_backend_status
 from .config import PLUGIN_DIR
 
 comfyui = on_shell_command(
@@ -49,6 +49,13 @@ view_workflow = on_alconna(
     Alconna("查看工作流", Args["search?", str]),
     priority=5,
     block=True
+)
+
+backend = on_command(
+    "后端",
+    aliases={"comfyui后端"},
+    priority=1,
+    block=False
 )
 
 
@@ -114,6 +121,23 @@ async def _(search):
     img = await html_to_pic(html=html_)
 
     msg = UniMessage.image(raw=img) + msg
+    await msg.finish()
+
+
+@backend.handle()
+async def _():
+    data = await get_backend_status()
+    from jinja2 import Environment, FileSystemLoader
+
+    # 初始化 Jinja2 环境
+    env = Environment(loader=FileSystemLoader(str(PLUGIN_DIR / 'template')))
+    template = env.get_template('backend_status.html')
+
+    # 渲染模板
+    html_output = template.render(data=data)
+    img = await html_to_pic(html=html_output)
+
+    msg = UniMessage.image(raw=img)
     await msg.finish()
 
 reg_command = asyncio.run(start_up_func())

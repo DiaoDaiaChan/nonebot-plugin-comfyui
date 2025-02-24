@@ -11,7 +11,7 @@ from nonebot.adapters import Event
 from nonebot.params import ShellCommandArgs, Matcher
 
 from nonebot_plugin_alconna import UniMessage
-from .backend.utils import send_msg_and_revoke, comfyui_generate, get_file_url
+from .backend.utils import send_msg_and_revoke, comfyui_generate, get_file_url, http_request
 from .config import config
 from .backend import ComfyuiTaskQueue, ComfyUI
 from .backend.update_check import check_package_update
@@ -120,11 +120,11 @@ async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespac
     task_status_dict = await queue_instance.get_task(args.task_id)
 
     if args.stop:
-        resp = await comfyui_instance.http_request("POST", f"{backend_url}/interrupt", text=True)
+        resp = await http_request("POST", f"{backend_url}/interrupt", text=True)
         comfyui_instance.unimessage += "任务已经停止"
 
     if args.track:
-        resp = await comfyui_instance.http_request("GET", f"{backend_url}/queue")
+        resp = await http_request("GET", f"{backend_url}/queue")
         task_id = []
 
         for task in resp['queue_running']:
@@ -145,7 +145,7 @@ async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespac
 
         payload = {"delete": delete}
 
-        resp = await comfyui_instance.http_request(
+        resp = await http_request(
             "POST",
             f"{backend_url}/queue",
             content=json.dumps(payload),
@@ -158,7 +158,7 @@ async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespac
 
         payload = {"clear": True}
 
-        resp = await comfyui_instance.http_request(
+        resp = await http_request(
             "POST",
             f"{backend_url}/queue",
             content=json.dumps(payload),
@@ -219,7 +219,7 @@ async def api_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs
     node = args.get
     if node:
         if node == "all":
-            resp = await comfyui_instance.http_request("GET", f"{backend_url}/object_info")
+            resp = await http_request("GET", f"{backend_url}/object_info")
 
             node_name = list(resp.keys())
             chunked_list = []
@@ -231,7 +231,7 @@ async def api_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs
             comfyui_instance.uni_long_text = chunked_list
 
         else:
-            resp = await comfyui_instance.http_request("GET", f"{backend_url}/object_info/{node}")
+            resp = await http_request("GET", f"{backend_url}/object_info/{node}")
             msg = ""
             for key, value in resp[node].items():
                 msg += f"{key}: {value}\n"

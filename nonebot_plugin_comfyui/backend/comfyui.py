@@ -1,7 +1,6 @@
 import copy
 import json
 import random
-import traceback
 import uuid
 import os
 import re
@@ -10,7 +9,7 @@ import aiofiles
 import aiohttp
 import asyncio
 import hashlib
-import ssl
+
 import nonebot
 
 from tqdm import tqdm
@@ -20,12 +19,11 @@ from typing import Union, Optional
 from argparse import Namespace
 from pathlib import Path
 from datetime import datetime
-from aiohttp import TCPConnector
-from itertools import islice, zip_longest
+from itertools import islice
 
 from ..config import config
 from nonebot_plugin_alconna import UniMessage
-from .utils import pic_audit_standalone, run_later, send_msg_and_revoke, get_and_filter_work_flows
+from .utils import pic_audit_standalone, run_later, send_msg_and_revoke, get_and_filter_work_flows, http_request
 from ..exceptions import ComfyuiExceptions
 
 MAX_SEED = 2 ** 31
@@ -157,7 +155,7 @@ class ComfyuiTaskQueue:
 
         api_url = f"{backend_url}/history"
 
-        resp = await ComfyUI.http_request("GET", api_url)
+        resp = await http_request("GET", api_url)
         cls.all_task_set = set(resp.keys())
         cls.all_task_dict = resp
 
@@ -463,7 +461,7 @@ class ComfyUI:
 
         media_url = {}
 
-        response: dict = await self.http_request(
+        response: dict = await http_request(
             method="GET",
             target_url=f"{backend_url}/history/{task_id}",
         )
@@ -893,7 +891,7 @@ class ComfyUI:
             "prompt": self.comfyui_api_json
         }
 
-        respond = await self.http_request(
+        respond = await http_request(
             method="POST",
             target_url=f"{self.backend_url}/prompt",
             content=json.dumps(input_)
@@ -925,49 +923,6 @@ class ComfyUI:
 
         return self.backend_url, task_id, self.client_id
 
-    @staticmethod
-    async def http_request(
-            method,
-            target_url,
-            headers=None,
-            params=None,
-            content=None,
-            format=True,
-            timeout=5000,
-            verify=True,
-            proxy=False,
-            text=False,
-    ) -> dict| bytes | str:
-
-        global_ssl_context = ssl.create_default_context()
-        global_ssl_context.set_ciphers('DEFAULT')
-        global_ssl_context.options |= ssl.OP_NO_SSLv2
-        global_ssl_context.options |= ssl.OP_NO_SSLv3
-        global_ssl_context.options |= ssl.OP_NO_TLSv1
-        global_ssl_context.options |= ssl.OP_NO_TLSv1_1
-        global_ssl_context.options |= ssl.OP_NO_COMPRESSION
-
-        connector = TCPConnector(ssl=global_ssl_context)
-
-        async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=timeout)) as session:
-            try:
-                async with session.request(
-                        method,
-                        target_url,
-                        headers=headers,
-                        params=params,
-                        data=content,
-                        ssl=verify,
-                ) as response:
-                    if text:
-                        return await response.text()
-                    if format:
-                        return await response.json()
-                    else:
-                        return await response.read()
-            except Exception as e:
-                raise ComfyuiExceptions.ComfyuiBackendConnectionError(f"请求后端时出现错误: {e}")
-
     async def upload_image(self, image_data: bytes, name, image_type="input", overwrite=False) -> dict:
 
         logger.info(f"图片: {name}上传成功")
@@ -995,7 +950,7 @@ class ComfyUI:
                             for media in value:
                                 url = media["url"]
 
-                                response = await self.http_request(
+                                response = await http_request(
                                     method="GET",
                                     target_url=url,
                                     format=False
@@ -1146,7 +1101,7 @@ class ComfyUI:
 
     async def get_backend_work_status(self, url):
 
-        resp = await self.http_request("GET", target_url=f"{url}/prompt", timeout=config.comfyui_timeout)
+        resp = await http_request("GET", target_url=f"{url}/prompt", timeout=config.comfyui_timeout)
         return resp
 
     async def select_backend(self):

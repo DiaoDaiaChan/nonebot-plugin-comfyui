@@ -7,9 +7,12 @@ import nonebot
 import traceback
 import aiohttp
 import filetype
+import ssl
 
+from aiohttp import TCPConnector
 from nonebot import logger
 from ..config import config, PLUGIN_DIR
+from ..exceptions import ComfyuiExceptions
 
 from io import BytesIO
 from PIL import Image
@@ -217,7 +220,7 @@ async def get_image(event, gif) -> list[bytes]:
             url = url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
             logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
 
-            byte_image = await ComfyUI.http_request("GET", url, format=False)
+            byte_image = await http_request("GET", url, format=False)
 
             kind = filetype.guess(byte_image)
             file_format = kind.extension if kind else "unknown"
@@ -411,6 +414,18 @@ async def build_help_text(reg_command):
                 "example": "capi -get KSampler -be 0 (获取KSampler节点的信息)"
             }
         ],
+        "other_commands": [
+            {
+                "command": "查看工作流",
+                "description": "查看插件加载的所有工作流, 可以使用序号或者名称进行匹配",
+                "example": "查看工作流 1 \ 查看工作流 flux"
+            },
+            {
+                "command": "comfyui后端",
+                "description": "查看插件加载的后端的状态",
+                "example": "comfyui后端"
+            }
+        ],
         "version": PLUGIN_VERSION
     }
 
@@ -442,3 +457,130 @@ def get_and_filter_work_flows(search=None, index=None) -> list:
             return []
 
     return wf_files
+
+
+async def http_request(
+        method,
+        target_url,
+        headers=None,
+        params=None,
+        content=None,
+        format=True,
+        timeout=5000,
+        verify=True,
+        proxy=False,
+        text=False,
+) -> dict| bytes | str:
+
+    global_ssl_context = ssl.create_default_context()
+    global_ssl_context.set_ciphers('DEFAULT')
+    global_ssl_context.options |= ssl.OP_NO_SSLv2
+    global_ssl_context.options |= ssl.OP_NO_SSLv3
+    global_ssl_context.options |= ssl.OP_NO_TLSv1
+    global_ssl_context.options |= ssl.OP_NO_TLSv1_1
+    global_ssl_context.options |= ssl.OP_NO_COMPRESSION
+
+    connector = TCPConnector(ssl=global_ssl_context)
+
+    async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+        try:
+            async with session.request(
+                    method,
+                    target_url,
+                    headers=headers,
+                    params=params,
+                    data=content,
+                    ssl=verify,
+            ) as response:
+                if text:
+                    return await response.text()
+                if format:
+                    return await response.json()
+                else:
+                    return await response.read()
+        except Exception as e:
+            raise ComfyuiExceptions.ComfyuiBackendConnectionError(f"请求后端时出现错误: {e}")
+
+
+def obfuscate_url(url):
+
+    prefix_length = 8
+    suffix_length = 8
+
+    if len(url) <= prefix_length + suffix_length:
+        return url
+
+    prefix = url[:prefix_length]
+    suffix = url[-suffix_length:]
+
+    obfuscated_part = '*' * (len(url) - prefix_length - suffix_length)
+
+    return prefix + obfuscated_part + suffix
+
+
+async def get_backend_status():
+    backend_status_task_list = []
+    backend_queue_task_list = []
+
+    timeout = config.comfyui_timeout
+
+    for url in config.comfyui_url_list:
+        backend_status_task_list.append(http_request("GET", target_url=f"{url}/system_stats", timeout=timeout))
+        backend_queue_task_list.append(http_request("GET", target_url=f"{url}/queue", timeout=timeout))
+
+    status_responses = await asyncio.gather(*backend_status_task_list, return_exceptions=True)
+    queue_responses = await asyncio.gather(*backend_queue_task_list, return_exceptions=True)
+
+    results = []
+    for idx, url in enumerate(config.comfyui_url_list):
+        node_status = {
+            "url": obfuscate_url(url),
+            "system": {},
+            "queue": {},
+            "error": None,
+            "index": config.comfyui_url_list.index(url)
+        }
+
+        status_resp = status_responses[idx]
+        if isinstance(status_resp, Exception):
+            node_status["error"] = f"System stats request failed: {str(status_resp)}"
+        elif not isinstance(status_resp, dict):
+            node_status["error"] = f"Invalid system stats response format: {type(status_resp)}"
+        else:
+            system_data = status_resp.get("system", {})
+            node_status["system"].update({
+                "comfyui_version": system_data.get("comfyui_version"),
+                "python_version": system_data.get("python_version"),
+                "pytorch_version": system_data.get("pytorch_version"),
+                "startup_args": system_data.get("argv", [])
+            })
+
+            devices = status_resp.get("devices", [])
+            if devices:
+                device = devices[0]
+                node_status["system"].update({
+                    "device_name": device.get("name"),
+                    "vram_free": device.get("vram_free"),
+                    "vram_total": device.get("vram_total")
+                })
+
+        queue_resp = queue_responses[idx]
+        if isinstance(queue_resp, Exception):
+            node_status["error"] = f"Queue request failed: {str(queue_resp)}"
+        elif not isinstance(queue_resp, dict):
+            node_status["error"] = f"Invalid queue response format: {type(queue_resp)}"
+        else:
+            running_tasks = queue_resp.get("queue_running", [])
+            pending_tasks = queue_resp.get("queue_pending", [])
+
+            node_status["queue"].update({
+                "running_count": len(running_tasks),
+                "pending_count": len(pending_tasks),
+                "running_ids": [task[1] for task in running_tasks],
+                "pending_ids": [task[1] for task in pending_tasks]
+            })
+
+        results.append(node_status)
+    return results
+
+

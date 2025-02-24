@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>后端状态</title>
+    <style>
+    :root {
+        --primary-color: #2c3e50;
+        --secondary-color: #3498db;
+        --highlight-color: #e74c3c;
+        --status-ok-color: #2ecc71;
+        --status-warning-color: #f39c12;
+        --status-error-color: #e74c3c;
+    }
+
+    body {
+        margin: 0; /* 去除默认的 body 边距 */
+        padding: 0; /* 去除默认的 body 内边距 */
+        background-color: #f8f9fa; /* 背景颜色作为备用 */
+        background-image: url('https://www.dmoe.cc/random.php'); /* 背景图片 */
+        background-size: cover; /* 图片覆盖整个背景 */
+        background-repeat: no-repeat; /* 不重复图片 */
+        background-attachment: fixed; /* 固定背景图片 */
+        font-family: 'Segoe UI', system-ui, sans-serif; /* 字体设置 */
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5); /* 文字阴影，增加可读性 */
+    }
+
+    .container {
+        max-width: 1200px;
+        padding: 2rem;
+        background: white;
+        box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        border-radius: 10px;
+        margin: 2rem auto;
+        background-color: rgba(255, 255, 255, 0.9);
+        font-size: 1.1rem; /* 增大容器内字体大小 */
+    }
+
+    .backend-card {
+        border-left: 4px solid var(--secondary-color);
+        margin: 1.5rem 0;
+        padding: 1rem 1.5rem;
+        background: #f8faff;
+        border-radius: 5px;
+        background-color: rgba(248, 250, 255, 0.8);
+    }
+
+    .backend-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .backend-title {
+        font-size: 1.75rem; /* 增大标题字体大小 */
+        margin: 0;
+    }
+
+    .backend-url {
+        font-size: 1.1rem; /* 增大 URL 字体大小 */
+        color: var(--secondary-color);
+        text-decoration: none;
+    }
+
+    .backend-index { /* 后端索引样式 */
+        font-size: 1.1rem; /* 增大索引字体大小 */
+        color: #777;
+        margin-left: 1rem;
+    }
+
+    .backend-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 0.75rem;
+        padding: 0.75rem 0;
+    }
+
+    .info-item {
+        padding: 0.6rem;
+        background: #f8f9fa;
+        border-radius: 5px;
+        transition: transform 0.2s;
+        font-size: 1rem; /* 增大信息项字体大小 */
+    }
+
+    .info-item:hover {
+        transform: translateX(3px);
+        box-shadow: 2px 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .info-label {
+        font-weight: bold;
+        color: var(--primary-color);
+        display: block;
+        margin-bottom: 0.2rem;
+    }
+
+    .info-value {
+        color: #555;
+        word-break: break-word;
+    }
+
+    .queue-status {
+        margin-top: 1rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid #eee;
+    }
+
+    .error-message {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--status-error-color);
+        color: white;
+        border-radius: 8px;
+        overflow-x: auto;
+        tab-size: 4;
+        font-size: 1rem; /* 增大错误信息字体大小 */
+    }
+
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+        vertical-align: middle;
+    }
+
+    .status-ok {
+        background-color: var(--status-ok-color);
+    }
+
+    .status-warning {
+        background-color: var(--status-warning-color);
+    }
+
+    .status-error {
+        background-color: var(--status-error-color);
+    }
+
+    code {
+        color: var(--highlight-color);
+        background: rgba(231, 76, 60, 0.1);
+        padding: 2px 6px;
+        border-radius: 3px;
+        word-break: break-all; /* startup_args 过长时换行 */
+    }
+
+    pre {
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1>后端状态</h1>
+        {% if data %}
+        {% for backend_data in data %}
+        <div class="backend-card">
+            <div class="backend-header">
+                <h2 class="backend-title">
+                    <span class="status-indicator {% if backend_data.error %}status-error{% elif backend_data.queue.pending_count > 0 %}status-warning{% else %}status-ok{% endif %}"></span>
+                    {{ backend_data.python | capitalize }} 后端
+                </h2>
+                <div>
+                    <a href="{{ backend_data.url }}" target="_blank" class="backend-url">{{ backend_data.url }}</a>
+                    <span class="backend-index">后端索引: {{ backend_data.index }}</span>
+                </div>
+
+            </div>
+
+            <div class="backend-info">
+                {% if backend_data.system %} {# 检查 backend_data.system 是否存在 #}
+                <div class="info-item">
+                    <span class="info-label">GPU 型号:</span>
+                    <span class="info-value">{{ backend_data.system.device_name.split(':')[1] if backend_data.system.device_name is defined else 'N/A' }}</span> {#  使用条件判断和默认值 #}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">ComfyUI 版本:</span>
+                    <span class="info-value">{{ backend_data.system.comfyui_version if backend_data.system.comfyui_version is defined else 'N/A' }}</span> {#  使用条件判断和默认值 #}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">PyTorch 版本:</span>
+                    <span class="info-value">{{ backend_data.system.pytorch_version if backend_data.system.pytorch_version is defined else 'N/A' }}</span> {#  使用条件判断和默认值 #}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Python 版本:</span>
+                    <span class="info-value">{{ backend_data.system.python_version.split('|')[0] if backend_data.system.python_version is defined else 'N/A' }}</span> {#  使用条件判断和默认值 #}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">总显存:</span>
+                    <span class="info-value">{{ (backend_data.system.vram_total / 1024 / 1024 / 1024) | round(2) if backend_data.system.vram_total is defined else 'N/A' }} GB</span> {#  使用条件判断和默认值 #}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">可用显存:</span>
+                    <span class="info-value">{{ (backend_data.system.vram_free / 1024 / 1024 / 1024) | round(2) if backend_data.system.vram_free is defined else 'N/A' }} GB</span> {#  使用条件判断和默认值 #}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">启动参数:</span>
+                    <span class="info-value"><code>{{ backend_data.system.startup_args | join(' ') if backend_data.system.startup_args is defined else 'N/A' }}</code></span> {#  使用条件判断和默认值 #}
+                </div>
+                {% else %}
+                <div class="info-item">
+                    <span class="info-label">系统信息:</span>
+                    <span class="info-value">无法获取系统信息</span> {#  当 backend_data.system 缺失时显示提示信息 #}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="queue-status">
+                <h3>队列状态</h3>
+                <div class="backend-info">
+                     {% if backend_data.queue %} {# 检查 backend_data.queue 是否存在 #}
+                    <div class="info-item">
+                        <span class="info-label">运行中任务:</span>
+                        <span class="info-value">{{ backend_data.queue.running_count if backend_data.queue.running_count is defined else 'N/A' }}</span> {#  使用条件判断和默认值 #}
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">等待中任务:</span>
+                        <span class="info-value">{{ backend_data.queue.pending_count if backend_data.queue.pending_count is defined else 'N/A' }}</span> {#  使用条件判断和默认值 #}
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">正在执行任务ID:</span>
+                        <span class="info-value">
+                            {% if backend_data.queue.running_ids %}
+                                {% for task_id in backend_data.queue.running_ids %}
+                                    <code>{{ task_id }}</code>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <span>无</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% else %}
+                     <div class="info-item">
+                        <span class="info-label">队列状态:</span>
+                        <span class="info-value">无法获取队列状态</span> {#  当 backend_data.queue 缺失时显示提示信息 #}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+
+            {% if backend_data.error %}
+            <h3>错误信息</h3>
+            <pre class="error-message">{{ backend_data.error }}</pre>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <p>没有后端数据。</p>
+        {% endif %}
+    </div>
+</body>
+</html>
