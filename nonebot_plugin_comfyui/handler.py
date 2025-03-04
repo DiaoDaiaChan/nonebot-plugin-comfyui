@@ -1,6 +1,7 @@
 import json
 import random
 import datetime
+import traceback
 
 from argparse import Namespace
 from itertools import islice
@@ -11,8 +12,8 @@ from nonebot.adapters import Event
 from nonebot.params import ShellCommandArgs, Matcher
 
 from nonebot_plugin_alconna import UniMessage
-from .backend.utils import send_msg_and_revoke, comfyui_generate, get_file_url, http_request
-from .amusement.today_girl import prompt_dict
+from .backend.utils import send_msg_and_revoke, comfyui_generate, get_file_url, http_request, txt_audit
+from .amusement import *
 from .config import config
 from .backend import ComfyuiTaskQueue, ComfyUI
 from .backend.update_check import check_package_update
@@ -33,28 +34,47 @@ TIPS = [
 MAX_DAILY_CALLS = config.comfyui_day_limit
 
 
-async def limit(daily_key, counter):
+async def limit(daily_key, counter, wf=None):
+
     if config.comfyui_limit_as_seconds:
         if daily_key in daily_calls:
             daily_calls[daily_key] += int(counter)
         else:
-            daily_calls[daily_key] = 1
+            daily_calls[daily_key] = int(counter)
 
         if daily_key in daily_calls and daily_calls[daily_key] >= MAX_DAILY_CALLS:
-            return f"今天你的使用时间已达上限，最多可以调用 {MAX_DAILY_CALLS} 秒。", True
+            msg = f"今天你的使用时间已达上限，最多可以调用 {MAX_DAILY_CALLS} 秒。"
+            is_reach_limit = True
         else:
-            return f"你今天已经使用了{daily_calls[daily_key]}秒, 还能使用{MAX_DAILY_CALLS - daily_calls[daily_key]}秒", False
+            msg = f"你今天已经使用了{daily_calls[daily_key]}秒, 还能使用{MAX_DAILY_CALLS - daily_calls[daily_key]}秒"
+            is_reach_limit = False
     else:
 
         if daily_key in daily_calls:
             daily_calls[daily_key] += int(counter)
         else:
-            daily_calls[daily_key] = 1
+            daily_calls[daily_key] = int(counter)
 
         if daily_key in daily_calls and daily_calls[daily_key] >= MAX_DAILY_CALLS:
-            return f"今天你的调用次数已达上限，最多可以调用 {MAX_DAILY_CALLS} 次。", True
+            msg = f"今天你的调用次数已达上限，最多可以调用 {MAX_DAILY_CALLS} 次。"
+            is_reach_limit = True
         else:
-            return f"你今天已经调用了{daily_calls[daily_key]}次, 还能调用{MAX_DAILY_CALLS - daily_calls[daily_key]}次", False
+            msg = f"你今天已经调用了{daily_calls[daily_key]}次, 还能调用{MAX_DAILY_CALLS - daily_calls[daily_key]}次"
+            is_reach_limit = False
+
+    if wf:
+        if "wf" not in daily_calls:
+            daily_calls["wf"] = {}
+
+        if daily_key not in daily_calls["wf"]:
+            daily_calls["wf"][daily_key] = {}
+
+        if wf in daily_calls["wf"][daily_key]:
+            daily_calls["wf"][daily_key][wf] += int(counter)
+        else:
+            daily_calls["wf"][daily_key][wf] = int(counter)
+
+    return msg, is_reach_limit
 
 
 async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):
@@ -89,7 +109,7 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
     daily_key = f"{user_id}:{today_date}"
 
     total_image = args.batch_count * args.batch_size
-    limit_msg, reach_limit = await limit(daily_key, total_image)
+    limit_msg, reach_limit = await limit(daily_key, total_image, args.work_flows)
     msg = f"{limit_msg}, TIPS: {random.choice(TIPS)}"
 
     if config.comfyui_limit_as_seconds:
@@ -102,19 +122,23 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
     cd[user_id] = nowtime
     # 执行生成
     try:
-        comfyui_instance = await comfyui_generate(event, bot, args, msg)
+        comfyui_instance = await comfyui_generate(
+            event, bot, args, msg,
+            daily_calls["wf"][daily_key][args.work_flows]
+        )
 
         if config.comfyui_limit_as_seconds:
             spend_time = comfyui_instance.spend_time
             await limit(daily_key, spend_time)
 
     except:
+        traceback.print_exc()
         daily_calls[daily_key] -= int(total_image)
 
 
 async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespace = ShellCommandArgs()):
     queue_instance = ComfyuiTaskQueue(bot, event, **vars(args))
-    comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot)
+    comfyui_instance = ComfyUI(nb_event=event, bot=bot, args=args, **vars(args))
 
     backend_url = queue_instance.backend_url
 
@@ -215,7 +239,7 @@ async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespac
 
 
 async def api_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):
-    comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot, forward=True)
+    comfyui_instance = ComfyUI(nb_event=event, bot=bot, args=args, forward=True, **vars(args))
 
     backend_url = comfyui_instance.backend_url
     node = args.get
@@ -258,7 +282,7 @@ async def today_girl_handler(
         build_msg_zh.append(zh)
         build_msg_en.append(en)
         tags = build_msg_en[0] +","+ f','.join(build_msg_en)
-        args.tags = [tags]
+        args.prompt = [tags]
 
     to_user = f'''
 二次元的我,
@@ -272,7 +296,46 @@ async def today_girl_handler(
 '''.strip()
 
     await send_msg_and_revoke(f"锵锵~~~{to_user}\n正在为你生成二次元图像捏")
-    args.tags = ["(solo:1.1),"] + args.tags
+    args.prompt = ["(solo:1.1),"] + args.prompt
     args.silent = True
     
+    await comfyui_handler(bot, event, args)
+
+
+async def danbooru_handler(bot: Bot, event: Event, tag: str, limit):
+
+    comfyui_instance = ComfyUI(nb_event=event, bot=bot, forward=True)
+    comfyui_instance.resp_msg_list = await danbooru(tag, limit)
+
+    await comfyui_instance.send_all_msg()
+
+
+async def get_checkpoints(
+    bot: Bot,
+    event: Event,
+    index: int
+):
+    comfyui_instance = ComfyUI(nb_event=event, bot=bot)
+    resp = await http_request(
+        "GET", f"{config.comfyui_url_list[index]}/object_info/CheckpointLoaderSimple"
+    )
+
+    ckpt_list = resp['CheckpointLoaderSimple']['input']['required']['ckpt_name'][0]
+    ckpt_msg = "\n".join(ckpt_list)
+    comfyui_instance.unimessage += ckpt_msg
+
+    await comfyui_instance.send_all_msg()
+
+
+async def llm_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):
+    prompt = await get_user_session(event.get_session_id()).main(','.join(args.prompt))
+    resp = await txt_audit(prompt)
+    if "yes" in resp:
+        prompt = "1girl"
+
+    args.silent = True
+    args.prompt = [prompt]
+
+    await send_msg_and_revoke(f'这是llm为你生成的prompt: \n {prompt}')
+
     await comfyui_handler(bot, event, args)

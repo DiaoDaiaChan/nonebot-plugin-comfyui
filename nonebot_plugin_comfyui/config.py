@@ -18,6 +18,7 @@ class Config(BaseModel):
     comfyui_max_res: int = 2048
     comfyui_base_res: int = 1024
     comfyui_audit: bool = True
+    comfyui_text_audit: bool = False
     comfyui_audit_local: bool = False
     comfyui_audit_level: int = 2
     comfyui_audit_comp: bool = False
@@ -39,7 +40,11 @@ class Config(BaseModel):
     }
     comfyui_superusers: list = []
     comfyui_silent: bool = False
-    comfyui_max_list: dict = {"batch_size": 2, "batch_count": 2, "width": 2048, "height": 2048, "steps": 100}
+    comfyui_max_dict: dict = {"batch_size": 2, "batch_count": 2, "width": 2048, "height": 2048, "steps": 100}
+    comfyui_http_proxy: str = os.environ.get("http_proxy")
+    comfyui_openai: list = ["https://api.openai.com", "sk-xxxxxx"]
+    comfyui_ai_prompt: bool = False
+    comfyui_translate: bool = False
 
 
 config = get_plugin_config(Config)

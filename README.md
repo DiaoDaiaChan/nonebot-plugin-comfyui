@@ -85,6 +85,13 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 |   comfyui_limit_as_seconds   | bool |  否  |                                                                       False                                                                       |                         使用画图所需要的时间来进行限制, 每天能调用夺少秒                          |
 |       comfyui_timeout        | int  |  否  |                                                                         5                                                                         |                                请求后端的时候的超时时间                                |
 |     comfyui_shape_preset     | dict |  否  | {"p": (832, 1216),"l": (1216, 832),"s": (1024, 1024),"lp": (1152, 1536),"ll": (1536, 1152),"ls":(1240, 1240),"up": (960, 1920),"ul": (1920, 960)} |                       预设的分辨率, 使用 -shape / -r 快速更改分辨率                       |
+|   comfyui_silent   | bool |  否  |                                                                       False                                                                       |                            全局静默(不返回小提示或者各种追踪信息)                            |
+|   comfyui_max_dict   | dict |  否  |                                 {"batch_size": 2, "batch_count": 2, "width": 2048, "height": 2048, "steps": 100}                                  |                         用于限制: 最大批数, 张数, 高度, 宽度以及步数                         |
+|       comfyui_http_proxy        | str  |  否  |                                                                  环境变量HTTP_PROXY                                                                   |                      设置http代理, 用于请求openapi, danbooru                       |
+|       comfyui_openai        | list |  否  |                                                                  ["https://api.openai.com", "sk-xxxxxx"]                                                                   |                          openapi标准api断点以及apitoken                          |
+|   comfyui_text_audit   | bool |  否  |                                                                       False                                                                       |                                对一些文本信息进行审核                                 |
+|   comfyui_ai_prompt   | bool |  否  |                                                                       False                                                                       |                             使用llm翻译,补全中文prompt                             |
+|   comfyui_translate   | bool |  否  |                                                                       False                                                                       |                     翻译中文prompt(目前只支持llm补全, 暂时无翻译api可用)                     |
 
 
 ```env
@@ -107,13 +114,19 @@ comfyui_day_limit = 20
 comfyui_limit_as_seconds = false
 comfyui_timeout = 5
 comfyui_shape_preset = {"p": (832, 1216),"l": (1216, 832),"s": (1024, 1024),"lp": (1152, 1536),"ll": (1536, 1152),"ls":(1240, 1240),"up": (960, 1920),"ul": (1920, 960)}
+comfyui_silent = false
+comfyui_max_dict = {"batch_size": 2, "batch_count": 2, "width": 2048, "height": 2048, "steps": 100}
+comfyui_openai = ["https://api.openai.com", "sk-xxxxxx"]
+comfyui_text_audit = false
+comfyui_ai_prompt = false
+comfyui_translate = false
 ```
 
 ## 关键!
 **comfyui_url**和**comfyui_workflows_dir**是必须的, 否则插件无法正常工作
 # [重要!插件基础芝士](./docs/md/node_control.md)
 ## 一些小trick
-## [trick](./docs/md/trick.md)
+## [trick](./nonebot_plugin_comfyui/template/example.md)
 
 ## ⭐ 使用
 
@@ -135,7 +148,7 @@ comfyui_shape_preset = {"p": (832, 1216),"l": (1216, 832),"s": (1024, 1024),"lp"
 - [x] [nonebot2](https://github.com/nonebot/nonebot2): 本项目的基础，非常好用的聊天机器人框架。
 
 ## TODO
-- [ ] 支持中文生图(不打算支持, 需要的小伙伴可以使用comfyui的翻译插件即可)
+- [x] 支持中文生成
 - [x] 支持图片审核
 - [x] 查看历史生图记录
 - [x] 多媒体支持 (已支持图片/视频/文字/音频)
@@ -146,6 +159,18 @@ comfyui_shape_preset = {"p": (832, 1216),"l": (1216, 832),"s": (1024, 1024),"lp"
 - [x] 支持本地审核图像啦
 
 ## 更新日志
+### 2025.03.05 0.8.0
+- 新的参数 -sil, 静默生图, 不返回队列信息等
+- 新的参数 -notice, 工作流执行完成的时候私聊通知, 适用于长工作流
+- 新的参数 -nt, 不要翻译输入 (对于那些输入中文的工作流)
+- 新的命令: dan, 二次元的我, llm-tag, comfyui后端, get-ckpt
+- 新的配置项目 (本README可以找到详细)
+- comfyui_silent 静默生图
+- comfyui_max_dict 设置各种参数的最大值
+- comfyui_openai openai标准api的断点和api token
+- comfyui_text_audit 文字审核
+- comfyui_ai_prompt llm补全/翻译prompt
+- comfyui_translate 翻译prompt
 ### 2025.02.24 0.7.0
 - 新的参数 -shape / -r  , 预设分辨率(comfyui_shape_preset), 可以使用此参数来快速更改分辨率 (-r 640x640 / -r p)
 - 优化了查看工作流命令以及帮助菜单

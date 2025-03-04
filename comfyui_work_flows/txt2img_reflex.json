@@ -2,8 +2,13 @@
   "sampler": 3,
   "image_size": 5,
   "output": 9,
-  "prompt": 6,
+  "prompt": {"6": {"override": {"text": "append_prompt"}}},
   "negative_prompt": 7,
   "command": "2绘画",
-  "note": "基础sdxl文生图工作流"
+  "note": "基础sdxl文生图工作流",
+  "reflex": {
+    "0" : {"4":  {"ckpt_name":  "NoobXL-EPS-v1.1.safetensors"}
+    }
+  },
+  "daylimit": 1
   }

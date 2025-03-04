@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import base64
 import asyncio
@@ -239,9 +240,9 @@ async def get_image(event, gif) -> list[bytes]:
     return image_byte
 
 
-async def comfyui_generate(event, bot, args, extra_msg=None):
+async def comfyui_generate(event, bot, args, extra_msg=None, day_limit=None):
     from . import ComfyUI
-    comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot)
+    comfyui_instance = ComfyUI(nb_event=event, bot=bot, args=args, **vars(args))
     
     if extra_msg:
         await comfyui_instance.send_extra_info(extra_msg, reply=True)
@@ -250,7 +251,7 @@ async def comfyui_generate(event, bot, args, extra_msg=None):
     comfyui_instance.init_images = image_byte
 
     try:
-        await comfyui_instance.exec_generate()
+        await comfyui_instance.exec_generate(day_limit)
     except Exception as e:
         traceback.print_exc()
         await send_msg_and_revoke(f'任务{comfyui_instance.task_id}生成失败, {e}')
@@ -334,8 +335,7 @@ async def get_file_url(comfyui_instance, outputs, backend_url, task_id):
 
 
 async def build_help_text(reg_command):
-        
-        
+
     argument_list = []
 
     for action in comfyui_parser._actions:
@@ -348,46 +348,17 @@ async def build_help_text(reg_command):
             else:
                 argument_info["flag"] = action.dest
 
-            argument_info["description"] = action.help
+            argument_info["description"] = action.help.split("example:")[0].strip() if "example:" in action.help else action.help
 
             if options:
-                if action.type == int:
-                    argument_info["example"] = f"prompt {argument_info['flag']} 10" # 假设 int 类型参数示例值为 10
-                elif action.nargs == '*':
-                    argument_info["example"] = f"prompt {argument_info['flag']} 'negative prompt 1' 'negative prompt 2'" # nargs='*' 的示例
-                else:
-                    argument_info["example"] = f"prompt {argument_info['flag']} '参数值'" # 默认字符串类型示例
-            else: # 位置参数
-                argument_info["example"] = "prompt '正面提示词'" # 位置参数示例
+                if "example:" in action.help:
+                    argument_info["example"] = action.help.split("example:")[1].strip()
 
             argument_list.append(argument_info)
-        
+
     template_data = {
         "reg_commands": reg_command,
         "parameters": argument_list,
-        #     {"flag": "-u", "description": "负面提示词", "example": "prompt -u '低质量'"},
-        #     # {"flag": "--ar", "description": "画幅比例", "example": "prompt --ar 16:9"},
-        #     # {"flag": "-s", "description": "种子", "example": "prompt -s 12345"},
-        #     # {"flag": "--steps", "description": "采样步数", "example": "prompt --steps 50"},
-        #     # {"flag": "--cfg", "description": "CFG scale", "example": "prompt --cfg 7.5"},
-        #     # {"flag": "-n", "description": "去噪强度", "example": "prompt -n 0.75"},
-        #     # {"flag": "-高", "description": "高度", "example": "prompt -高 512"},
-        #     # {"flag": "-宽", "description": "宽度", "example": "prompt -宽 768"},
-        #     # {"flag": "-wf", "description": "工作流", "example": "prompt -wf workflow"},
-        #     # {"flag": "-sp", "description": "采样器", "example": "prompt -sp euler_a"},
-        #     # {"flag": "-sch", "description": "调度器", "example": "prompt -sch karras"},
-        #     # {"flag": "-b", "description": "每批数量(一次生成几张)", "example": "prompt -b 2"},
-        #     # {"flag": "-bc", "description": "生成几批(生成几次)", "example": "prompt -bc 4"},
-        #     # {"flag": "-m", "description": "模型", "example": "prompt -m model.ckpt"},
-        #     # {"flag": "-o", "description": "不使用内置正面提示词", "example": "prompt -o"},
-        #     # {"flag": "-on", "description": "不使用内置负面提示词", "example": "prompt -on"},
-        #     # {"flag": "-be", "description": "选择指定的后端索引(从0开始)/url", "example": "prompt -be 1"},
-        #     # {"flag": "-f", "description": "发送为转发消息", "example": "prompt -f"},
-        #     # {"flag": "-gif", "description": "将gif图片输入工作流", "example": "prompt -gif"},
-        #     # {"flag": "-con", "description": "并发使用多后端生图, 和-bc一起使用", "example": "prompt -con -bc 3"},
-        #     # {"flag": "-r", "description": "自定义的比例字符串, 可以在画幅预设中查看", "example": "prompt -r 512x512 / prompt -r p"},
-        #     # {"flag": "-silent", "description": "生图的时候不返回其他信息, 只返回结果", "example": "prompt -silent"},
-        # ],
         "shape_presets": [
             {"name": k, "width": v[0], "height": v[1]} 
             for k, v in config.comfyui_shape_preset.items()
@@ -443,19 +414,34 @@ async def build_help_text(reg_command):
             {
                 "flag": "-get",
                 "description": "需需要查看的节点信息, 例如 capi -get all -be 0 (获取所有节点名称)",
-                "example": "capi -get KSampler -be 0 (获取KSampler节点的信息)"
+                "example": "capi -get KSampler -be 0 \n(获取KSampler节点的信息)"
             }
         ],
         "other_commands": [
             {
                 "command": "查看工作流",
                 "description": "查看插件加载的所有工作流, 可以使用序号或者名称进行匹配",
-                "example": "查看工作流 1 \ 查看工作流 flux"
+                "example": "查看工作流 1 \n 查看工作流 flux"
             },
             {
                 "command": "comfyui后端",
                 "description": "查看插件加载的后端的状态",
                 "example": "comfyui后端"
+            },
+            {
+                "command": "二次元的我",
+                "description": "随机拼凑prompt来生成图片",
+                "example": "二次元的我, 二次元的鸡"
+            },
+            {
+                "command": "dan",
+                "description": "从Danbooru上查询tag, 用来查找tag或者角色",
+                "example": "dan 原神 10 (查看10个结果)\ndan 'blue archive' \n 查看符合输入的tag"
+            },
+            {
+                "command": "llm-tag",
+                "description": "使用llm生成prompt",
+                "example": "llm-tag 海边的少女"
             }
         ],
         "version": PLUGIN_VERSION
@@ -501,7 +487,7 @@ async def http_request(
         timeout=5000,
         verify=True,
         proxy=False,
-        text=False,
+        text=False
 ) -> dict| bytes | str:
 
     global_ssl_context = ssl.create_default_context()
@@ -514,15 +500,19 @@ async def http_request(
 
     connector = TCPConnector(ssl=global_ssl_context)
 
-    async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+    async with aiohttp.ClientSession(
+        connector=connector,
+        timeout=aiohttp.ClientTimeout(total=timeout),
+        proxy=config.comfyui_http_proxy if proxy else None
+    ) as session:
         try:
             async with session.request(
-                    method,
-                    target_url,
-                    headers=headers,
-                    params=params,
-                    data=content,
-                    ssl=verify,
+                method,
+                target_url,
+                headers=headers,
+                params=params,
+                data=content,
+                ssl=verify,
             ) as response:
                 if text:
                     return await response.text()
@@ -625,39 +615,39 @@ async def txt_audit(
         请注意， 和这两项(政治/暴恐)无关的内容不需要你的判断， 最后， 只输出<yes>或者<no>不需要你输出其他内容
         '''
 ):
+    try:
 
-    if config.enable_txt_audit is False:
-        return 'no'
+        if config.comfyui_text_audit is False:
+            return 'no'
 
-    system = [
-        {"role": "system",
-         "content": prompt}
-    ]
-    prompt = [{"role": "user", "content": msg}]
+        system = [
+            {"role": "system",
+             "content": prompt}
+        ]
+        prompt = [{"role": "user", "content": msg}]
 
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=300)) as session:
-        try:
-            async with session.post(
-                f"http://{config.openai_proxy_site}/v1/chat/completions",
-                headers={"Authorization": config.openai_api_key},
-                json={
+        response_data = await http_request(
+            "POST", config.comfyui_openai[0] + "/v1/chat/completions",
+            headers={"Authorization": config.comfyui_openai[1]},
+            content=json.dumps({
                     "model": "gpt-3.5-turbo",
                     "messages": system + prompt,
                     "max_tokens": 4000,
-                },
-            ) as response:
-                response_data = await response.json()
-            try:
-                res: str = remove_punctuation(response_data['choices'][0]['message']['content'].strip())
-                logger.info(f'进行文字审核审核,输入{msg}, 输出{res}')
-                return res
-            except:
-                traceback.print_exc()
-                return "yes"
-        except:
-            traceback.print_exc()
-            return "yes"
-        
+            }),
+            proxy=True
+
+        )
+
+        print(response_data)
+
+        res: str = remove_punctuation(response_data['choices'][0]['message']['content'].strip())
+        logger.info(f'进行文字审核审核,输入{msg}, 输出{res}')
+        return res
+
+    except:
+        traceback.print_exc()
+        return "yes"
+
 
 def remove_punctuation(text):
     import string
@@ -665,3 +655,17 @@ def remove_punctuation(text):
         if text[i] not in string.punctuation:
             return text[i:]
     return ""
+
+
+async def download_img(url):
+    url = url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
+    img_bytes = await http_request("GET", url, format=False)
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+
+    return img_base64, img_bytes
+
+
+async def translate_api(tags, to):
+
+    return tags
+

@@ -1,15 +1,13 @@
 import asyncio
 
-from nonebot import logger
 from nonebot.plugin.on import on_shell_command, on_command
 
 from nonebot_plugin_htmlrender import html_to_pic, md_to_pic
-from nonebot_plugin_alconna import on_alconna, Args, UniMessage, Alconna
+from nonebot_plugin_alconna import on_alconna, Args, Alconna
 
 from jinja2 import Environment, FileSystemLoader
-from .handler import comfyui_handler
 from .backend.help import ComfyuiHelp
-from .handler import queue_handler, api_handler
+from .handler import *
 from .parser import comfyui_parser, api_parser, queue_parser, rebuild_parser
 from .backend.utils import build_help_text, get_backend_status
 from .config import PLUGIN_DIR
@@ -64,7 +62,29 @@ today_girl = on_shell_command(
     parser=comfyui_parser,
     priority=5,
     block=True,
-    handlers=[comfyui_handler]
+    handlers=[today_girl_handler]
+)
+
+on_alconna(
+    Alconna("dan", Args["tag", str]["limit?", int]),
+    handlers=[danbooru_handler],
+    block=True
+)
+
+llm = on_shell_command(
+    "llm-tag",
+    priority=1,
+    block=True,
+    handlers=[llm_handler],
+    parser=comfyui_parser,
+)
+
+on_alconna(
+    Alconna("get-ckpt", Args["index", int]),
+    priority=5,
+    block=True,
+    handlers=[get_checkpoints]
+# Alconna("get-model", Args["index", int]["model?", str]["search?", str]),
 )
 
 

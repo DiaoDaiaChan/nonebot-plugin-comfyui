@@ -23,7 +23,15 @@ from itertools import islice
 
 from ..config import config
 from nonebot_plugin_alconna import UniMessage
-from .utils import pic_audit_standalone, run_later, send_msg_and_revoke, get_and_filter_work_flows, http_request
+from .utils import (
+    pic_audit_standalone,
+    run_later,
+    send_msg_and_revoke,
+    get_and_filter_work_flows,
+    http_request,
+    translate_api,
+    txt_audit
+)
 from ..exceptions import ComfyuiExceptions
 
 MAX_SEED = 2 ** 31
@@ -190,10 +198,10 @@ class ComfyUI:
     def __init__(
             self,
             nb_event: Event,
-            args: Namespace,
             bot: nonebot.Bot,
-            prompt: str = None,
-            negative_prompt: str = None,
+            args: Optional[Namespace] = None,
+            prompt=None,
+            negative_prompt=None,
             accept_ratio: str = None,
             seed: Optional[int] = None,
             steps: Optional[int] = None,
@@ -214,10 +222,16 @@ class ComfyUI:
             concurrency: Optional[bool] = False,
             shape: Optional[str] = None,
             silent: Optional[bool] = False,
+            notice: Optional[bool] = False,
+            no_trans: Optional[bool] = False,
             **kwargs
     ):
 
         # 映射参数相关
+        if prompt is None:
+            prompt = [""]
+        if negative_prompt is None:
+            negative_prompt = [""]
         self.reflex_dict = reflex_dict
 
         self.work_flows = None
@@ -246,8 +260,8 @@ class ComfyUI:
         self.bot = bot
 
         # 绘图参数相关
-        self.prompt: str = self.list_to_str(prompt or "")
-        self.negative_prompt: str = self.list_to_str(negative_prompt or "")
+        self.prompt: str = prompt
+        self.negative_prompt: str = negative_prompt
         
         self.accept_ratio: str = accept_ratio
         if self.accept_ratio is None:
@@ -301,7 +315,9 @@ class ComfyUI:
         self.backend_task: dict = {}
         self.available_backends: set[int] = set({})
         self.concurrency = concurrency
-        self.silent = silent
+        self.silent = silent or config.comfyui_silent
+        self.notice = notice
+        self.no_trans = no_trans
 
         # 用户相关
         self.client_id = None
@@ -312,6 +328,7 @@ class ComfyUI:
 
         self.init_images = []
         self.unimessage = UniMessage.text('')
+        self.uni_long_text: list = []
         self.input_image = False  # 是否需要输入图片
 
         self.resp_msg: RespMsg = RespMsg()
@@ -358,6 +375,10 @@ class ComfyUI:
                 for unimsg in msg:
                     task_list.append(unimsg.export())
 
+                if self.uni_long_text:
+                    for uni in self.uni_long_text:
+                        task_list.append(UniMessage.text(uni))
+
                 msg = await asyncio.gather(*task_list, return_exceptions=True)
 
                 await send_ob11_forward_msg(
@@ -384,9 +405,8 @@ class ComfyUI:
         await self.unimessage.send(reply_to=True)
         
     async def send_extra_info(self, message, reply=False):
-        if not config.silent:
+        if not self.silent:
             await send_msg_and_revoke(message, reply)
-
 
     async def send_all_msg(self):
 
@@ -442,7 +462,7 @@ class ComfyUI:
             except ValueError:
                 raise ComfyuiExceptions.ArgsError
         else:
-            return 768, 1152
+            return 832, 1216
 
         total_pixels = config.comfyui_base_res ** 2
         aspect_ratio = width_ratio / height_ratio
@@ -485,8 +505,6 @@ class ComfyUI:
             error_type = messages[2][0]
             if 'execution_error' in error_type:
                 error_msg = messages[2][1]
-
-                output_error_msg = '任务出错!\n'
 
                 error_node = error_msg['node_type']
                 output_error_msg += f"出错节点: {error_node}\n"
@@ -774,8 +792,16 @@ class ComfyUI:
 
                             api_json[node]['inputs'].update(update_node)
 
+                elif item == "reflex":
+                    reflex_list = node_id
+                    for backend_index, node_reflex in reflex_list.items():
+                        if self.backend_index == int(backend_index):
+                            for node, item_ in node_reflex.items():
+                                for k, v in item_.items():
+                                    api_json[node]['inputs'][k] = v
+
         await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
-        self.comfyui_api_json = api_json
+        return api_json
 
     async def track_single_task(self, backend_url: str, task_id: str, client_id: str):
         logger.info(f"任务: {task_id} 开始跟踪 At {client_id} client ID")
@@ -832,45 +858,95 @@ class ComfyUI:
 
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def exec_generate(self):
+    async def prompt_init(self, tags_list) -> str:
+        tags: str = " ".join(str(i) for i in tags_list if isinstance(i, str))
+        tags = re.sub(r"\[CQ[^\s]*?]", "", tags)
+        tags = tags.replace("\\\\", "\\")
+
+        if config.comfyui_translate and not self.no_trans:
+            tags_list_split = [tag.strip() for tag in tags.split(",") if tag.strip()]  # 使用split分割标签
+            tagzh = [tag for tag in tags_list_split if re.search('[\u4e00-\u9fa5]', tag)]
+            tags_en = ""
+            if tagzh:
+                tagzh_str = ",".join(tagzh)
+                if config.comfyui_ai_prompt:
+                    from ..amusement.llm_tagger import get_user_session
+                    logger.info("使用AI翻译")
+                    to_openai = f"{tagzh_str}+prompts"
+                    try:
+                        tags_en = await get_user_session(20020204).main(to_openai)
+                        logger.info(f"ai生成prompt: {tags_en}")
+                    except Exception as e:
+                        logger.error(f"AI翻译失败: {e}, 回退到普通翻译")
+                        tags_en = await translate_api(tagzh_str, "en")
+                else:
+                    tags_en = await translate_api(tagzh_str, "en")
+            tags_other = [tag for tag in tags_list_split if not re.search('[\u4e00-\u9fa5]', tag)]
+            all_tags = ", ".join(filter(None, [tags_en, ", ".join(tags_other)]))
+            tags = all_tags
+        return tags
+
+    async def exec_generate(self, daily_call=None):
+
+        # 获取工作流json
+        try:
+            await self.get_workflows_json()
+            # 工作流每日调用限制
+            if daily_call:
+                limit_ = self.reflex_json.get('daylimit')
+                if limit_ < daily_call:
+                    raise ComfyuiExceptions.ReachWorkFlowExecLimitations
+
+        except FileNotFoundError:
+            raise ComfyuiExceptions.ReflexJsonNotFoundError
+
+        # prompt初始化
+        task_list = [self.prompt_init(self.prompt), self.prompt_init(self.negative_prompt)]
+        self.prompt, self.negative_prompt = await asyncio.gather(*task_list, return_exceptions=False)
+        # 文字审核
+        resp = await txt_audit(str(self.prompt)+str(self.negative_prompt))
+        if "yes" in resp:
+            raise ComfyuiExceptions.TextContentNotSafeError
 
         if self.backend_url is None:
             raise ComfyuiExceptions.NoAvailableBackendError
-        
-        try:
-            await self.get_workflows_json()
-        except FileNotFoundError:
-            raise ComfyuiExceptions.ReflexJsonNotFoundError
-        
-        if self.concurrency is False:
+
+        # 是否是并发生成
+        if self.concurrency:
+
+            task_info_list = []
+            for i in range(self.batch_count):
+                self.seed += 1
+                # 选择后端
+                await self.select_backend()
+                # 开始请求任务
+                task_info = await self.posting()
+                task_info_list.append(task_info)
+            # 监听任务
+            await self.heart_beat(task_info_list)
+
+        else:
 
             await self.select_backend()
-
             for i in range(self.batch_count):
 
                 self.seed += 1
                 task_info = await self.posting()
                 await self.heart_beat([task_info])
 
-        else:
-            task_info_list = []
-            for i in range(self.batch_count):
-                self.seed += 1
-                await self.select_backend()
-                task_info = await self.posting()
-                task_info_list.append(task_info)
-
-            await self.heart_beat(task_info_list)
-
         self.resp_msg_list = [item for item in self.resp_msg_list if item is not None]
+        # 下载任务
         await self.download_img()
 
     async def posting(self):
 
+        # 获取reflex json
         if self.reflex_json.get('override', None):
             self.override_backend_setting_dict = self.reflex_json['override']
+            # 覆写设置
             await self.override_backend_setting_func()
-            
+
+        # 设置分辨率
         shape_preset_dict = config.comfyui_shape_preset
         if self.shape:
             if self.shape in shape_preset_dict:
@@ -883,22 +959,26 @@ class ComfyUI:
 
         upload_img_resp_list = []
 
+        # 检查是否需要图片
         if self.input_image and not self.init_images:
             raise ComfyuiExceptions.InputFileNotFoundError
 
+        # 上传图片
         if self.init_images:
             for image in self.init_images:
                 resp = await self.upload_image(image, uuid.uuid4().hex)
                 upload_img_resp_list.append(resp)
 
-        await self.update_api_json(upload_img_resp_list)
+        # 更新API JSON
+        api_json = await self.update_api_json(upload_img_resp_list)
 
         self.client_id = uuid.uuid4().hex
         input_ = {
             "client_id": self.client_id,
-            "prompt": self.comfyui_api_json
+            "prompt": api_json
         }
 
+        # 开始请求
         respond = await http_request(
             method="POST",
             target_url=f"{self.backend_url}/prompt",
@@ -926,7 +1006,7 @@ class ComfyUI:
             f"已选择工作流: {self.work_flows}, "
             f"正在生成, 此后端现在共有{remain_task}个任务在执行, "
             f"请稍等. 任务id: {self.task_id}, 后端索引: {self.backend_index}",
-            reply_to=True
+            reply=True
         )
 
         return self.backend_url, task_id, self.client_id
@@ -988,14 +1068,6 @@ class ComfyUI:
                 await self.audit_func(image_byte_tid)
             except Exception as e:
                 raise ComfyuiExceptions.AuditError(f"审核出错: {e}")
-
-    @staticmethod
-    def list_to_str(tags_list):
-        tags: str = "".join([i+" " for i in tags_list if isinstance(i, str)])
-        tags = re.sub("\[CQ[^\s]*?]", "", tags)
-        tags = tags.replace("\\\\", "\\")
-        tags = tags.split(",")
-        return ','.join(tags)
 
     @staticmethod
     async def compare_dicts(dict1, dict2):
@@ -1181,13 +1253,13 @@ class ComfyUI:
                     if self.backend_index in available_in:
                         await self.send_extra_info(
                             f'警告，所选的后端(索引: {self.backend_index})掉线，无法执行工作流({self.work_flows})，已自动切换',
-                            reply_to=True
+                            reply=True
                         )
                         
                     else:
                         await self.send_extra_info(
                             f'警告，所选的后端(索引: {self.backend_index})不支持当前工作流({self.work_flows})，已自动切换',
-                            reply_to=True
+                            reply=True
                         )
 
                     if fastest_backend_index and fastest_backend_index in ava_backend_inter:
@@ -1199,13 +1271,15 @@ class ComfyUI:
                 
                 await self.send_extra_info(
                     f'警告, 所选的后端(索引: {self.backend_index})掉线, 已经自动选择到支持的后端',
-                    reply_to=True
+                    reply=True
                 )
 
                 if fastest_backend_index:
                     self.backend_url = BACKEND_URL_LIST[fastest_backend_index]
                 else:
                     self.backend_url = BACKEND_URL_LIST[random.choice(list(self.available_backends))]
+
+        self.backend_index = BACKEND_URL_LIST.index(self.backend_url)
 
     def __str__(self):
 

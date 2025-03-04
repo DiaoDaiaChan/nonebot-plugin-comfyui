@@ -65,3 +65,11 @@ class ComfyuiExceptions(BaseException):
     class NoAvailableBackendForSelectedWorkflow(Exception):
         def __init__(self, message="目前没有可运行所选的工作流的后端"):
             super().__init__(message)
+
+    class TextContentNotSafeError(Exception):
+        def __init__(self, message="文字内容检测到违规"):
+            super().__init__(message)
+
+    class ReachWorkFlowExecLimitations(Exception):
+        def __init__(self, message="超过此工作流调用次数限制, 今天无法再次使用此工作流"):
+            super().__init__(message)
