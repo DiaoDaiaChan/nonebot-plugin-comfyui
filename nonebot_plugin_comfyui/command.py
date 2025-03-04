@@ -59,6 +59,14 @@ backend = on_command(
     block=False
 )
 
+today_girl = on_shell_command(
+    "二次元的",
+    parser=comfyui_parser,
+    priority=5,
+    block=True,
+    handlers=[comfyui_handler]
+)
+
 
 async def start_up_func():
 

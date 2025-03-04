@@ -213,6 +213,7 @@ class ComfyUI:
             forward: Optional[bool] = False,
             concurrency: Optional[bool] = False,
             shape: Optional[str] = None,
+            silent: Optional[bool] = False,
             **kwargs
     ):
 
@@ -300,6 +301,7 @@ class ComfyUI:
         self.backend_task: dict = {}
         self.available_backends: set[int] = set({})
         self.concurrency = concurrency
+        self.silent = silent
 
         # 用户相关
         self.client_id = None
@@ -380,6 +382,11 @@ class ComfyUI:
                 await run_later(video.send())
 
         await self.unimessage.send(reply_to=True)
+        
+    async def send_extra_info(self, message, reply=False):
+        if not config.silent:
+            await send_msg_and_revoke(message, reply)
+
 
     async def send_all_msg(self):
 
@@ -914,8 +921,8 @@ class ComfyUI:
             remain_task = queue_['exec_info']['queue_remaining']
         else:
             remain_task = "N/A"
-
-        await send_msg_and_revoke(
+            
+        await self.send_extra_info(
             f"已选择工作流: {self.work_flows}, "
             f"正在生成, 此后端现在共有{remain_task}个任务在执行, "
             f"请稍等. 任务id: {self.task_id}, 后端索引: {self.backend_index}",
@@ -1172,12 +1179,13 @@ class ComfyUI:
                         self.backend_url = BACKEND_URL_LIST[random.choice(list(ava_backend_inter))]
                 else:
                     if self.backend_index in available_in:
-                        await send_msg_and_revoke(
+                        await self.send_extra_info(
                             f'警告，所选的后端(索引: {self.backend_index})掉线，无法执行工作流({self.work_flows})，已自动切换',
                             reply_to=True
                         )
+                        
                     else:
-                        await send_msg_and_revoke(
+                        await self.send_extra_info(
                             f'警告，所选的后端(索引: {self.backend_index})不支持当前工作流({self.work_flows})，已自动切换',
                             reply_to=True
                         )
@@ -1188,8 +1196,8 @@ class ComfyUI:
                         self.backend_url = BACKEND_URL_LIST[random.choice(list(ava_backend_inter))]
         else:
             if self.backend_index not in self.available_backends:
-
-                await send_msg_and_revoke(
+                
+                await self.send_extra_info(
                     f'警告, 所选的后端(索引: {self.backend_index})掉线, 已经自动选择到支持的后端',
                     reply_to=True
                 )

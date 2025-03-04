@@ -38,6 +38,8 @@ class Config(BaseModel):
         "ul": (1920, 960)
     }
     comfyui_superusers: list = []
+    comfyui_silent: bool = False
+    comfyui_max_list: dict = {"batch_size": 2, "batch_count": 2, "width": 2048, "height": 2048, "steps": 100}
 
 
 config = get_plugin_config(Config)

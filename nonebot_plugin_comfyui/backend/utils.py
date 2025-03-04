@@ -13,6 +13,7 @@ from aiohttp import TCPConnector
 from nonebot import logger
 from ..config import config, PLUGIN_DIR
 from ..exceptions import ComfyuiExceptions
+from ..parser import comfyui_parser
 
 from io import BytesIO
 from PIL import Image
@@ -238,9 +239,12 @@ async def get_image(event, gif) -> list[bytes]:
     return image_byte
 
 
-async def comfyui_generate(event, bot, args):
+async def comfyui_generate(event, bot, args, extra_msg=None):
     from . import ComfyUI
     comfyui_instance = ComfyUI(**vars(args), nb_event=event, args=args, bot=bot)
+    
+    if extra_msg:
+        await comfyui_instance.send_extra_info(extra_msg, reply=True)
     # 加载图片
     image_byte = await get_image(event, args.gif)
     comfyui_instance.init_images = image_byte
@@ -331,31 +335,59 @@ async def get_file_url(comfyui_instance, outputs, backend_url, task_id):
 
 async def build_help_text(reg_command):
         
+        
+    argument_list = []
+
+    for action in comfyui_parser._actions:
+        if action.dest != 'help':
+            argument_info = {}
+            options = action.option_strings
+
+            if options:
+                argument_info["flag"] = options[0]
+            else:
+                argument_info["flag"] = action.dest
+
+            argument_info["description"] = action.help
+
+            if options:
+                if action.type == int:
+                    argument_info["example"] = f"prompt {argument_info['flag']} 10" # 假设 int 类型参数示例值为 10
+                elif action.nargs == '*':
+                    argument_info["example"] = f"prompt {argument_info['flag']} 'negative prompt 1' 'negative prompt 2'" # nargs='*' 的示例
+                else:
+                    argument_info["example"] = f"prompt {argument_info['flag']} '参数值'" # 默认字符串类型示例
+            else: # 位置参数
+                argument_info["example"] = "prompt '正面提示词'" # 位置参数示例
+
+            argument_list.append(argument_info)
+        
     template_data = {
         "reg_commands": reg_command,
-        "parameters": [
-            {"flag": "-u", "description": "负面提示词", "example": "prompt -u '低质量'"},
-            {"flag": "--ar", "description": "画幅比例", "example": "prompt --ar 16:9"},
-            {"flag": "-s", "description": "种子", "example": "prompt -s 12345"},
-            {"flag": "--steps", "description": "采样步数", "example": "prompt --steps 50"},
-            {"flag": "--cfg", "description": "CFG scale", "example": "prompt --cfg 7.5"},
-            {"flag": "-n", "description": "去噪强度", "example": "prompt -n 0.75"},
-            {"flag": "-高", "description": "高度", "example": "prompt -高 512"},
-            {"flag": "-宽", "description": "宽度", "example": "prompt -宽 768"},
-            {"flag": "-wf", "description": "工作流", "example": "prompt -wf workflow"},
-            {"flag": "-sp", "description": "采样器", "example": "prompt -sp euler_a"},
-            {"flag": "-sch", "description": "调度器", "example": "prompt -sch karras"},
-            {"flag": "-b", "description": "每批数量(一次生成几张)", "example": "prompt -b 2"},
-            {"flag": "-bc", "description": "生成几批(生成几次)", "example": "prompt -bc 4"},
-            {"flag": "-m", "description": "模型", "example": "prompt -m model.ckpt"},
-            {"flag": "-o", "description": "不使用内置正面提示词", "example": "prompt -o"},
-            {"flag": "-on", "description": "不使用内置负面提示词", "example": "prompt -on"},
-            {"flag": "-be", "description": "选择指定的后端索引(从0开始)/url", "example": "prompt -be 1"},
-            {"flag": "-f", "description": "发送为转发消息", "example": "prompt -f"},
-            {"flag": "-gif", "description": "将gif图片输入工作流", "example": "prompt -gif"},
-            {"flag": "-con", "description": "并发使用多后端生图, 和-bc一起使用", "example": "prompt -con -bc 3"},
-            {"flag": "-r", "description": "自定义的比例字符串, 可以在画幅预设中查看", "example": "prompt -r 512x512 / prompt -r p"},
-        ],
+        "parameters": argument_list,
+        #     {"flag": "-u", "description": "负面提示词", "example": "prompt -u '低质量'"},
+        #     # {"flag": "--ar", "description": "画幅比例", "example": "prompt --ar 16:9"},
+        #     # {"flag": "-s", "description": "种子", "example": "prompt -s 12345"},
+        #     # {"flag": "--steps", "description": "采样步数", "example": "prompt --steps 50"},
+        #     # {"flag": "--cfg", "description": "CFG scale", "example": "prompt --cfg 7.5"},
+        #     # {"flag": "-n", "description": "去噪强度", "example": "prompt -n 0.75"},
+        #     # {"flag": "-高", "description": "高度", "example": "prompt -高 512"},
+        #     # {"flag": "-宽", "description": "宽度", "example": "prompt -宽 768"},
+        #     # {"flag": "-wf", "description": "工作流", "example": "prompt -wf workflow"},
+        #     # {"flag": "-sp", "description": "采样器", "example": "prompt -sp euler_a"},
+        #     # {"flag": "-sch", "description": "调度器", "example": "prompt -sch karras"},
+        #     # {"flag": "-b", "description": "每批数量(一次生成几张)", "example": "prompt -b 2"},
+        #     # {"flag": "-bc", "description": "生成几批(生成几次)", "example": "prompt -bc 4"},
+        #     # {"flag": "-m", "description": "模型", "example": "prompt -m model.ckpt"},
+        #     # {"flag": "-o", "description": "不使用内置正面提示词", "example": "prompt -o"},
+        #     # {"flag": "-on", "description": "不使用内置负面提示词", "example": "prompt -on"},
+        #     # {"flag": "-be", "description": "选择指定的后端索引(从0开始)/url", "example": "prompt -be 1"},
+        #     # {"flag": "-f", "description": "发送为转发消息", "example": "prompt -f"},
+        #     # {"flag": "-gif", "description": "将gif图片输入工作流", "example": "prompt -gif"},
+        #     # {"flag": "-con", "description": "并发使用多后端生图, 和-bc一起使用", "example": "prompt -con -bc 3"},
+        #     # {"flag": "-r", "description": "自定义的比例字符串, 可以在画幅预设中查看", "example": "prompt -r 512x512 / prompt -r p"},
+        #     # {"flag": "-silent", "description": "生图的时候不返回其他信息, 只返回结果", "example": "prompt -silent"},
+        # ],
         "shape_presets": [
             {"name": k, "width": v[0], "height": v[1]} 
             for k, v in config.comfyui_shape_preset.items()
@@ -584,3 +616,52 @@ async def get_backend_status():
     return results
 
 
+async def txt_audit(
+        msg,
+        prompt='''
+        接下来请你对一些聊天内容进行审核,
+        如果内容出现政治/暴恐内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 
+        如果没有则输出<no>,
+        请注意， 和这两项(政治/暴恐)无关的内容不需要你的判断， 最后， 只输出<yes>或者<no>不需要你输出其他内容
+        '''
+):
+
+    if config.enable_txt_audit is False:
+        return 'no'
+
+    system = [
+        {"role": "system",
+         "content": prompt}
+    ]
+    prompt = [{"role": "user", "content": msg}]
+
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=300)) as session:
+        try:
+            async with session.post(
+                f"http://{config.openai_proxy_site}/v1/chat/completions",
+                headers={"Authorization": config.openai_api_key},
+                json={
+                    "model": "gpt-3.5-turbo",
+                    "messages": system + prompt,
+                    "max_tokens": 4000,
+                },
+            ) as response:
+                response_data = await response.json()
+            try:
+                res: str = remove_punctuation(response_data['choices'][0]['message']['content'].strip())
+                logger.info(f'进行文字审核审核,输入{msg}, 输出{res}')
+                return res
+            except:
+                traceback.print_exc()
+                return "yes"
+        except:
+            traceback.print_exc()
+            return "yes"
+        
+
+def remove_punctuation(text):
+    import string
+    for i in range(len(text)):
+        if text[i] not in string.punctuation:
+            return text[i:]
+    return ""

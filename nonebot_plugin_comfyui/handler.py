@@ -12,6 +12,7 @@ from nonebot.params import ShellCommandArgs, Matcher
 
 from nonebot_plugin_alconna import UniMessage
 from .backend.utils import send_msg_and_revoke, comfyui_generate, get_file_url, http_request
+from .amusement.today_girl import prompt_dict
 from .config import config
 from .backend import ComfyuiTaskQueue, ComfyUI
 from .backend.update_check import check_package_update
@@ -88,19 +89,20 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
     daily_key = f"{user_id}:{today_date}"
 
     total_image = args.batch_count * args.batch_size
-    msg, reach_limit = await limit(daily_key, total_image)
-    await send_msg_and_revoke(f"{msg}, TIPS: {random.choice(TIPS)}", True)
+    limit_msg, reach_limit = await limit(daily_key, total_image)
+    msg = f"{limit_msg}, TIPS: {random.choice(TIPS)}"
 
     if config.comfyui_limit_as_seconds:
         daily_calls[daily_key] -= int(total_image)
 
     if reach_limit:
+        await send_msg_and_revoke(limit_msg)
         return
 
     cd[user_id] = nowtime
     # 执行生成
     try:
-        comfyui_instance = await comfyui_generate(event, bot, args)
+        comfyui_instance = await comfyui_generate(event, bot, args, msg)
 
         if config.comfyui_limit_as_seconds:
             spend_time = comfyui_instance.spend_time
@@ -240,3 +242,37 @@ async def api_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs
 
     await comfyui_instance.send_all_msg()
 
+
+async def today_girl_handler(
+    bot: Bot,
+    event: Event,
+    args: Namespace = ShellCommandArgs()
+):
+    build_msg_en = []
+    build_msg_zh = []
+
+    choice_list = ["类型", "发色", "头发", "衣服", "鞋子", "装饰", "胸",  "表情", "动作", "天气", "环境", "优秀实践"]
+    for i in choice_list:
+        zh = random.choice(list(prompt_dict[i].keys()))
+        en = prompt_dict[i][zh]
+        build_msg_zh.append(zh)
+        build_msg_en.append(en)
+        tags = build_msg_en[0] +","+ f','.join(build_msg_en)
+        args.tags = [tags]
+
+    to_user = f'''
+二次元的我,
+{build_msg_zh[11]},
+是{build_msg_zh[0]},{build_msg_zh[7]},
+{build_msg_zh[1]}色{build_msg_zh[2]},
+穿着{build_msg_zh[3]}和{build_msg_zh[4]},
+有着{build_msg_zh[5]}和{build_msg_zh[6]},
+正在{build_msg_zh[8]},
+画面{build_msg_zh[9]},{build_msg_zh[10]},
+'''.strip()
+
+    await send_msg_and_revoke(f"锵锵~~~{to_user}\n正在为你生成二次元图像捏")
+    args.tags = ["(solo:1.1),"] + args.tags
+    args.silent = True
+    
+    await comfyui_handler(bot, event, args)
