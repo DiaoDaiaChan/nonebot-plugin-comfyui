@@ -6,6 +6,7 @@ from nonebot.plugin.on import on_shell_command, on_command
 from nonebot_plugin_htmlrender import html_to_pic, md_to_pic
 from nonebot_plugin_alconna import on_alconna, Args, UniMessage, Alconna
 
+from jinja2 import Environment, FileSystemLoader
 from .handler import comfyui_handler
 from .backend.help import ComfyuiHelp
 from .handler import queue_handler, api_handler
@@ -127,13 +128,10 @@ async def _(search):
 @backend.handle()
 async def _():
     data = await get_backend_status()
-    from jinja2 import Environment, FileSystemLoader
 
-    # 初始化 Jinja2 环境
     env = Environment(loader=FileSystemLoader(str(PLUGIN_DIR / 'template')))
     template = env.get_template('backend_status.html')
 
-    # 渲染模板
     html_output = template.render(data=data)
     img = await html_to_pic(html=html_output)
 

@@ -31,7 +31,7 @@ MAX_SEED = 2 ** 31
 OTHER_ACTION = {
     "override", "note", "presets", "media",
     "command", "reg_args", "visible", "output_prefix",
-    "daylimit", "lora", "available"
+    "daylimit", "lora", "available", "reflex"
 }
 
 __OVERRIDE_SUPPORT_KEYS__ = {
@@ -372,6 +372,15 @@ class ComfyUI:
         except:
             return False
 
+    async def normal_msg_send(self):
+
+        for resp in self.resp_msg_list:
+
+            for video in resp.resp_video:
+                await run_later(video.send())
+
+        await self.unimessage.send(reply_to=True)
+
     async def send_all_msg(self):
 
         msg_list = []
@@ -381,32 +390,24 @@ class ComfyUI:
             self.unimessage += msg_
             msg_list.append(msg_)
 
-        async def normal_msg_send():
-
-            for resp in self.resp_msg_list:
-
-                for video in resp.resp_video:
-                    await run_later(video.send())
-
-            await self.unimessage.send(reply_to=True)
-
         if self.forward:
 
             is_forward = await self.send_forward_msg(msg_list)
 
             if is_forward is False:
-                await normal_msg_send()
+                await self.normal_msg_send()
 
         else:
             try:
-                await normal_msg_send()
+                await self.normal_msg_send()
             except:
                 await self.send_forward_msg(msg_list)
-        #
-        # for resp_ in self.resp_msg_list:
-        #     print(len(resp_.resp_audio))
-        #     for audio in resp_.resp_audio:
-        #         await audio.send()
+
+        for resp_ in self.resp_msg_list:
+            for audio in resp_.resp_audio:
+                await audio.send()
+            for video in resp_.resp_video:
+                await video.send()
 
     async def get_workflows_json(self):
         async with aiofiles.open(
@@ -1083,9 +1084,9 @@ class ComfyUI:
                     if file_type == "image":
                         resp_.resp_img += UniMessage.image(raw=file_bytes)
                     elif file_type == "video":
-                        await run_later(UniMessage.video(raw=file_bytes).send())
+                        resp_.resp_video.append(UniMessage.video(raw=file_bytes))
                     elif file_type == "audio":
-                        await run_later(UniMessage.audio(raw=file_bytes).send())
+                        resp_.resp_audio.append(UniMessage.audio(raw=file_bytes))
 
         else:
             for resp_ in self.resp_msg_list:
@@ -1095,9 +1096,9 @@ class ComfyUI:
                         if file_type == "image":
                             resp_.resp_img += UniMessage.image(raw=file_bytes)
                         elif file_type == "video":
-                            await run_later(UniMessage.video(raw=file_bytes).send())
+                            resp_.resp_video.append(UniMessage.video(raw=file_bytes))
                         elif file_type == "audio":
-                            await run_later(UniMessage.audio(raw=file_bytes).send())
+                            resp_.resp_audio.append(UniMessage.audio(raw=file_bytes))
 
     async def get_backend_work_status(self, url):
 
