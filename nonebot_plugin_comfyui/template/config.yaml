@@ -97,5 +97,9 @@ comfyui_random_wf: false
 comfyui_random_wf_list:
   - "txt2img"
 
-# 发现色图的时候使用图片的链接二维码代替
+# 发现色图的时候使用图片的链接二维码代替, 不支持lgr!
 comfyui_qr_mode: false
+
+# 超级用户, 不受时间限制
+comfyui_superusers:
+  -

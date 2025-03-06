@@ -1,6 +1,7 @@
 import copy
 import json
 import random
+import traceback
 import uuid
 import os
 import re
@@ -115,7 +116,70 @@ class RespMsg:
         self.media_url: dict = {}
 
         self.image_byte = []
-        
+
+
+class ComfyuiHistory:
+
+    all_task_id: set = {}
+    all_task_dict: dict = {}
+    user_task: dict = {}
+
+    def __init__(
+            self,
+            bot: Bot = None,
+            event: Event = None,
+            backend: str = None,
+            task_id: str = None,
+            **kwargs
+    ):
+
+        self.bot = bot
+        self.event = event
+        self.user_id = event.get_user_id()
+        self.task_id = task_id
+
+        self.selected_backend = backend
+        if backend is not None and backend.isdigit():
+            self.backend_url = BACKEND_URL_LIST[int(backend)]
+        else:
+            self.backend_url = backend
+
+        self.backend_url: str = self.backend_url if backend else config.comfyui_url
+
+        self.backend = backend
+
+    @classmethod
+    async def get_user_task(cls, user_id):
+        task_id = cls.user_task.get(user_id, None)
+        task_status_dict = await cls.get_task(task_id)
+
+        return task_status_dict
+
+    @classmethod
+    async def set_user_task(cls, user_id, task_id):
+        cls.user_task.update({user_id: task_id})
+
+    @classmethod
+    async def get_history_task(cls, backend_url) -> set:
+
+        api_url = f"{backend_url}/history"
+
+        resp = await http_request("GET", api_url)
+        cls.all_task_set = set(resp.keys())
+        cls.all_task_dict = resp
+
+        history_id_set = set(islice(resp.keys(), 20))
+
+        return history_id_set
+
+    @classmethod
+    async def get_task(cls, task_id: str | None = None) -> dict:
+
+        task_status_dict = cls.all_task_dict.get(task_id, {})
+
+        return task_status_dict
+
+
 class ComfyuiTaskQueue:
 
     all_task_id = set()
@@ -174,6 +238,7 @@ class ComfyuiTaskQueue:
             if task_id in user_tasks:
                 user_tasks[task_id]["status"] = status
 
+
 class ComfyUIQueue:
     def __init__(self, queue_size=10):
         self.queue = asyncio.Queue(maxsize=queue_size)
@@ -229,26 +294,24 @@ class ComfyUI:
             negative_prompt = [""]
         self.reflex_dict = reflex_dict
 
-        self.work_flows = None
+        self.work_flows = work_flows
 
-        # ComfyuiAPI相关
-        if work_flows is None and config.comfyui_random_wf is False:
-            work_flows = config.comfyui_default_workflows
-            
+        if self.work_flows == config.comfyui_default_workflows:
+            if config.comfyui_random_wf:
+                self.work_flows = random.choice(config.comfyui_random_wf_list)
         else:
-            work_flows = random.choice(config.comfyui_random_wf_list)
+            if work_flows:
+                for wf in self.update_wf(index=work_flows if work_flows.strip().isdigit() else None):
 
-        for wf in self.update_wf(index=work_flows if work_flows.strip().isdigit() else None):
+                    if len(self.work_flows_init) == 1:
+                        self.work_flows = self.work_flows_init[0]
 
-            if len(self.work_flows_init) == 1:
-                self.work_flows = self.work_flows_init[0]
-
-            else:
-                if work_flows in wf:
-                    self.work_flows = wf
-                    break
-                else:
-                    self.work_flows = "txt2img"
+                    else:
+                        if work_flows in wf:
+                            self.work_flows = wf
+                            break
+                        else:
+                            self.work_flows = "txt2img"
 
         logger.info(f"选择工作流: {self.work_flows}")
 
@@ -843,7 +906,7 @@ class ComfyUI:
                                 if self.notice:
                                     await run_later(
                                         self.send_msg_to_private(
-                                            f"你的任务已经完成, 发送 queue -get {task_id} -be {self.backend_index} 获取结果", 
+                                            f"你的任务已经完成, 获取结果发送 queue -get {task_id} -be {self.backend_index}",
                                             is_image=False
                                             )
                                         )
@@ -907,8 +970,9 @@ class ComfyUI:
             # 工作流每日调用限制
             if daily_call:
                 limit_ = self.reflex_json.get('daylimit')
-                if limit_ < daily_call:
-                    raise ComfyuiExceptions.ReachWorkFlowExecLimitations
+                if limit_:
+                    if limit_ < daily_call:
+                        raise ComfyuiExceptions.ReachWorkFlowExecLimitations
 
         except FileNotFoundError:
             raise ComfyuiExceptions.ReflexJsonNotFoundError

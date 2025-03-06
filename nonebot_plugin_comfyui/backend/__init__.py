@@ -1,1 +1,1 @@
-from .comfyui import ComfyUI, ComfyuiTaskQueue, RespMsg
+from .comfyui import ComfyUI, ComfyuiTaskQueue, RespMsg, ComfyuiHistory

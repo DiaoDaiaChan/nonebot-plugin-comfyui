@@ -47,7 +47,8 @@ help_ = on_command(
 view_workflow = on_alconna(
     Alconna("查看工作流", Args["search?", str]),
     priority=5,
-    block=True
+    block=True,
+    use_cmd_start=True
 )
 
 backend = on_command(
@@ -68,7 +69,8 @@ today_girl = on_shell_command(
 on_alconna(
     Alconna("dan", Args["tag", str]["limit?", int]),
     handlers=[danbooru_handler],
-    block=True
+    block=True,
+    use_cmd_start=True
 )
 
 llm = on_shell_command(
@@ -83,15 +85,16 @@ on_alconna(
     Alconna("get-ckpt", Args["index", int]),
     priority=5,
     block=True,
-    handlers=[get_checkpoints]
-# Alconna("get-model", Args["index", int]["model?", str]["search?", str]),
+    handlers=[get_checkpoints],
+    use_cmd_start=True
 )
 
 on_alconna(
-    Alconna("get-task", Args["index", str]),
+    Alconna("get-task", Args["index?", str]),
     priority=5,
     block=True,
-    handlers=[get_task]
+    handlers=[get_task],
+    use_cmd_start=True
 )
 
 

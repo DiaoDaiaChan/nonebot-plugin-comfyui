@@ -36,7 +36,7 @@ async def get_workflow_sc(wf):
             if ava_backend_inter:
                 url = BACKEND_URL_LIST[random.choice(list(ava_backend_inter))]
         else:
-            url = BACKEND_URL_LIST[random.choice(ava_backends)]
+            url = BACKEND_URL_LIST[random.choice(list(ava_backends))]
         
         await page.goto(url)
         await page.wait_for_load_state('networkidle')

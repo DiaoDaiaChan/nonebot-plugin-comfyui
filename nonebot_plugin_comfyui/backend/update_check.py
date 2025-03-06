@@ -11,7 +11,7 @@ async def get_recent_commit_messages(num_commits=3):
     url = f"https://api.github.com/repos/DiaoDaiaChan/nonebot-plugin-comfyui/commits"
     params = {
         "per_page": num_commits,
-        "page": 1,
+        "page": 2,
     }
     try:
         commits = await http_request("GET", target_url=url, params=params)

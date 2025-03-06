@@ -11,7 +11,7 @@ PLUGIN_DIR = Path(os.path.dirname(os.path.abspath(__file__))).resolve()
 
 config_file_path = Path("config/comfyui.yaml").resolve()
 config_file_path_old = Path("config/comfyui_old.yaml").resolve()
-source_template = PLUGIN_DIR / "template"  / "config.yaml"
+source_template = PLUGIN_DIR / "template" / "config.yaml"
 
 destination_folder = Path("config")
 destination_file = destination_folder / "comfyui.yaml"
@@ -24,7 +24,6 @@ class Config(BaseModel):
     comfyui_model: str = ""
     comfyui_workflows_dir: str = "./data/comfyui"
     comfyui_default_workflows: str = "txt2img"
-    comfyui_max_res: int = 2048
     comfyui_base_res: int = 1024
     comfyui_audit: bool = True
     comfyui_text_audit: bool = False
@@ -50,7 +49,7 @@ class Config(BaseModel):
     comfyui_superusers: list = []
     comfyui_silent: bool = False
     comfyui_max_dict: dict = {"batch_size": 2, "batch_count": 2, "width": 2048, "height": 2048, "steps": 100}
-    comfyui_http_proxy: str = os.environ.get("http_proxy")
+    comfyui_http_proxy: str = ""
     comfyui_openai: list = ["https://api.openai.com", "sk-xxxxxx"]
     comfyui_ai_prompt: bool = False
     comfyui_translate: bool = False
@@ -79,11 +78,10 @@ def rewrite_yaml(old_config, source_template, delete_old=False):
 def check_yaml_is_changed(source_template):
     with open(config_file_path, 'r', encoding="utf-8") as f:
         old = yaml.load(f)
-    with open(source_template , 'r', encoding="utf-8") as f:
+    with open(source_template, 'r', encoding="utf-8") as f:
         example_ = yaml.load(f)
     keys1 = set(example_.keys())
     keys2 = set(old.keys())
-    # print(f"{keys1}\n{keys2}")
     if keys1 == keys2:
         return False
     else:
@@ -122,7 +120,7 @@ else:
 wf_dir = Path(config.comfyui_workflows_dir)
 
 superusers = list(get_driver().config.superusers)
-config.comfyui_superusers = superusers
+config.comfyui_superusers = list(set(config.comfyui_superusers + superusers))
 
 if config.comfyui_multi_backend is False:
     config.comfyui_url_list = [config.comfyui_url]

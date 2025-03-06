@@ -12,10 +12,11 @@ from nonebot.adapters import Event
 from nonebot.params import ShellCommandArgs, Matcher
 
 from nonebot_plugin_alconna import UniMessage
-from .backend.utils import send_msg_and_revoke, comfyui_generate, get_file_url, http_request, txt_audit
+from .backend.utils import send_msg_and_revoke, get_file_url, http_request, txt_audit, get_image
 from .amusement import *
+from .backend import ComfyUI
 from .config import config
-from .backend import ComfyuiTaskQueue, ComfyUI
+from .backend import ComfyuiTaskQueue, ComfyUI, ComfyuiHistory
 from .backend.update_check import check_package_update
 
 cd = {}
@@ -32,6 +33,31 @@ TIPS = [
     "使用 -r 1216x832 参数, 可用快速设定分辨率"
 ]
 MAX_DAILY_CALLS = config.comfyui_day_limit
+
+
+async def comfyui_generate(event, bot, args, extra_msg=None, day_limit=None):
+    comfyui_instance = ComfyUI(nb_event=event, bot=bot, args=args, **vars(args))
+
+    if extra_msg:
+        await comfyui_instance.send_extra_info(extra_msg, reply=True)
+    # 加载图片
+    image_byte = await get_image(event, args.gif)
+    comfyui_instance.init_images = image_byte
+
+    try:
+        await comfyui_instance.exec_generate(day_limit)
+    except Exception as e:
+        traceback.print_exc()
+        await send_msg_and_revoke(f'任务{comfyui_instance.task_id}生成失败, {e}')
+        raise e
+
+    unimsg: UniMessage = comfyui_instance.unimessage
+    unimsg = UniMessage.text(f'队列完成, 耗时:{comfyui_instance.spend_time}秒\n') + unimsg
+    comfyui_instance.unimessage = unimsg
+
+    await comfyui_instance.send_all_msg()
+
+    return comfyui_instance
 
 
 async def limit(daily_key, counter, wf=None):
@@ -142,7 +168,7 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
 
 
 async def queue_handler(bot: Bot, event: Event, matcher: Matcher, args: Namespace = ShellCommandArgs()):
-    queue_instance = ComfyuiTaskQueue(bot, event, **vars(args))
+    queue_instance = ComfyuiHistory(bot, event, **vars(args))
     comfyui_instance = ComfyUI(nb_event=event, bot=bot, args=args, **vars(args))
 
     backend_url = queue_instance.backend_url
@@ -346,6 +372,23 @@ async def llm_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs
     await comfyui_handler(bot, event, args)
 
 
-async def get_task(event: Event, index: str):
+async def get_task(event: Event, index):
+    if isinstance(index, str):
+        pass
+    else:
+        index = "0-10"
+
+    start, end = map(int, index.split('-'))
+
     my_task = await ComfyuiTaskQueue.get_user_task(event.get_user_id())
-    pass
+    my_task = list(my_task.keys())
+
+    tasks_in_range = my_task[start:end + 1]
+
+    msg = '这是你的任务: \n'
+
+    for task in tasks_in_range:
+        msg += f'{task}\n'
+
+    await UniMessage.text(msg).send()
+

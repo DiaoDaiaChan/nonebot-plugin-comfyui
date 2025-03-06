@@ -10,6 +10,7 @@ import aiohttp
 import filetype
 import ssl
 import qrcode
+import socket
 import time
 
 from urllib.parse import urlparse
@@ -27,7 +28,7 @@ from jinja2 import Environment, FileSystemLoader
 
 cd = {}
 daily_calls = {}
-PLUGIN_VERSION = '0.7'
+PLUGIN_VERSION = '0.8'
 
 
 async def run_later(func, delay=1):
@@ -220,7 +221,6 @@ async def get_image(event, gif) -> list[bytes]:
 
     image_byte = []
     if img_url:
-        from . import ComfyUI
         for url in img_url:
             url = url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
             logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
@@ -241,32 +241,6 @@ async def get_image(event, gif) -> list[bytes]:
             image_byte.append(byte_image)
 
     return image_byte
-
-
-async def comfyui_generate(event, bot, args, extra_msg=None, day_limit=None):
-    from . import ComfyUI
-    comfyui_instance = ComfyUI(nb_event=event, bot=bot, args=args, **vars(args))
-    
-    if extra_msg:
-        await comfyui_instance.send_extra_info(extra_msg, reply=True)
-    # 加载图片
-    image_byte = await get_image(event, args.gif)
-    comfyui_instance.init_images = image_byte
-
-    try:
-        await comfyui_instance.exec_generate(day_limit)
-    except Exception as e:
-        traceback.print_exc()
-        await send_msg_and_revoke(f'任务{comfyui_instance.task_id}生成失败, {e}')
-        raise e
-
-    unimsg: UniMessage = comfyui_instance.unimessage
-    unimsg = UniMessage.text(f'队列完成, 耗时:{comfyui_instance.spend_time}秒\n') + unimsg
-    comfyui_instance.unimessage = unimsg
-
-    await comfyui_instance.send_all_msg()
-
-    return comfyui_instance
 
 
 async def get_file_url(comfyui_instance, outputs, backend_url, task_id):
@@ -451,7 +425,7 @@ async def build_help_text(reg_command):
                 "description": "获取指定后端索引的模型",
                 "example": "get-ckpt 0 / get-ckpt 1 "
             },
-                        {
+            {
                 "command": "get-task",
                 "description": "获取自己生成过的任务id, 默认显示前10",
                 "example": "get-task 10-20 (获取10-20个任务的id) "
@@ -652,8 +626,6 @@ async def txt_audit(
 
         )
 
-        print(response_data)
-
         res: str = remove_punctuation(response_data['choices'][0]['message']['content'].strip())
         logger.info(f'进行文字审核审核,输入{msg}, 输出{res}')
         return res
@@ -691,11 +663,12 @@ async def get_qr(msg, bot):
     )
     message_id = message_data["message_id"]
     message_all = await bot.get_msg(message_id=message_id)
+    print(message_all)
     url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-    img_url = re.findall(url_regex, str(message_all["message"]))
-    
+    img_url = re.findall(url_regex, str(message_all["message"]))[0]
+    img_url = img_url.replace("multimedia.nt.qq.com.cn", "gchat.qpic.cn")
     img_id = time.time()
-    img = qrcode.make(img_url[0])
+    img = qrcode.make(img_url)
     
     file_name = f"qr_code_{img_id}.png"
     img.save(file_name)
@@ -707,8 +680,7 @@ async def get_qr(msg, bot):
     return bytes_img
 
 
-async def is_port_open(host: str, port: int, timeout: int = config.comfyui_timeout) -> bool:
-
+async def is_port_open(host: str, port: int, timeout=config.comfyui_timeout) -> bool:
     try:
         _, writer = await asyncio.wait_for(
             asyncio.open_connection(host, port),
@@ -721,14 +693,14 @@ async def is_port_open(host: str, port: int, timeout: int = config.comfyui_timeo
         return False
 
 
-async def get_backend_work_status(self, url: str) -> dict:
+async def get_backend_work_status(url: str) -> dict:
     
     parsed_url = urlparse(url)
     host = parsed_url.hostname
     port = parsed_url.port or (80 if parsed_url.scheme == "http" else 443)
 
-    if not await self.is_port_open(host, port):
-        raise ComfyuiExceptions.ComfyuiBackendConnectionError(f"后端服务 {url} 的端口 {port} 不可达")
+    if not await is_port_open(host, port):
+        raise ComfyuiExceptions.ComfyuiBackendConnectionError
     else:
         resp = await http_request("GET", target_url=f"{url}/prompt", timeout=config.comfyui_timeout)
         return resp
@@ -737,7 +709,7 @@ async def get_backend_work_status(self, url: str) -> dict:
 async def get_ava_backends():
     
     backend_dict = {}
-    available_backends = []
+    available_backends = set({})
 
     task_list = []
     for task in BACKEND_URL_LIST:

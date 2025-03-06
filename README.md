@@ -78,12 +78,18 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 
 ### 指令：
 
-|    指令     | 需要@ | 范围 |   说明    |权限|
-|:---------:|:---:|:---:|:-------:|:---:|
-|  prompt   |  否  |all|  生成图片   |all|
-| comfyui帮助 |  否  |all| 获取简易帮助  |all|
-|   查看工作流   |  否  |all| 查看所有工作流 |all|
-|   queue   |  否  |all|  查看队列   |all|
+|      指令      | 需要@ | 范围 |          说明           |权限|
+|:------------:|:---:|:---:|:---------------------:|:---:|
+|    prompt    |  否  |all|         生成图片          |all|
+|  comfyui帮助   |  否  |all|        获取简易帮助         |all|
+|    查看工作流     |  否  |all|        查看所有工作流        |all|
+|    queue     |  否  |all|         查看队列          |all|
+|  comfyui后端   |  否  |all|        查看后端状态         |all|
+|    二次元的我     |  否  |all|    随机拼凑prompt来生成图片    |all|
+|     dan      |  否  |all|    从Danbooru上查询tag    |all|
+|    llm-tag     |  否  |all|         使用llm生成prompt        |all|
+|    get-ckpt    |  否  |all|         获取指定后端索引的模型         |all|
+|    get-task    |  否  |all|         获取自己生成过的任务id, 默认显示前10          |all|
 
 
 ## 💝 特别鸣谢
@@ -91,7 +97,7 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 - [x] [nonebot2](https://github.com/nonebot/nonebot2): 本项目的基础，非常好用的聊天机器人框架。
 
 ## 更新日志
-### 2025.03.05 0.8.0
+### 2025.03.06 0.8.0
 - 新的参数 -sil, 静默生图, 不返回队列信息等
 - 新的参数 -nt, 不要翻译输入 (对于那些输入中文的工作流)
 - 新的命令: dan, 二次元的我, llm-tag, comfyui后端, get-ckpt
