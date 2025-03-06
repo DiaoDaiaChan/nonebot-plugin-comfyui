@@ -2,6 +2,7 @@ import json
 
 from ..config import config
 from ..backend.utils import http_request
+from ..backend.utils import txt_audit
 
 
 sys_text = f'''
@@ -31,10 +32,9 @@ header = {
 }
 
 
-class Session(): # 这里来自nonebot-plugin-gpt3
+class Session():  # 这里来自nonebot-plugin-gpt3
     def __init__(self, user_id):
         self.session_id = user_id
-
 
     async def main(self, to_openai, input_sys_text=""):
         if input_sys_text:

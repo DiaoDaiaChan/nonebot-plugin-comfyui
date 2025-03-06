@@ -43,8 +43,8 @@ comfyui_parser.add_argument("-r", "-shape", "-分辨率", dest="shape", type=str
                             help="自定义分辨率的比例字符串 example:prompt -r p / prompt -r 960x1920")
 comfyui_parser.add_argument("-sil", "-静默", dest="silent", action="store_true",
                             help="不返回各种提示消息 example:prompt -sil")
-comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
-                            help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
+# comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
+#                             help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
 comfyui_parser.add_argument("-nt", "-不翻译", dest="no_trans", action="store_true",
                             help="不翻译中文输入 example:prompt -nt")
 
@@ -109,8 +109,10 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
                                 help="自定义分辨率的比例字符串 example:prompt -r p / prompt -r 960x1920")
     comfyui_parser.add_argument("-sil", "-静默", dest="silent", action="store_true",
                                 help="不返回各种提示消息 example:prompt -sil")
-    comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
-                                help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
+    comfyui_parser.add_argument("-nt", "-不翻译", dest="no_trans", action="store_true",
+                                help="不翻译中文输入 example:prompt -nt")
+    # comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
+    #                             help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
 
     if reg_args:
 

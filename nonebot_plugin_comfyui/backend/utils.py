@@ -442,6 +442,11 @@ async def build_help_text(reg_command):
                 "command": "llm-tag",
                 "description": "使用llm生成prompt",
                 "example": "llm-tag 海边的少女"
+            },
+            {
+                "command": "get-ckpt",
+                "description": "获取指定后端索引的模型",
+                "example": "get-ckpt 0 / get-ckpt 1 "
             }
         ],
         "version": PLUGIN_VERSION

@@ -334,6 +334,13 @@ class ComfyUI:
         self.resp_msg: RespMsg = RespMsg()
         self.resp_msg_list: list[RespMsg] = []
 
+    def set_max_values(self, max_dict):
+        for key, max_value in max_dict.items():
+            if hasattr(self, key):
+                current_value = getattr(self, key)
+                if current_value is not None and current_value > max_value:
+                    setattr(self, key, max_value)
+
     async def send_forward_msg(self, msg) -> bool:
 
         try:
@@ -900,6 +907,7 @@ class ComfyUI:
         except FileNotFoundError:
             raise ComfyuiExceptions.ReflexJsonNotFoundError
 
+        self.set_max_values(config.comfyui_max_dict)
         # prompt初始化
         task_list = [self.prompt_init(self.prompt), self.prompt_init(self.negative_prompt)]
         self.prompt, self.negative_prompt = await asyncio.gather(*task_list, return_exceptions=False)

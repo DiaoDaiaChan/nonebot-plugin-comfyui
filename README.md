@@ -161,16 +161,17 @@ comfyui_translate = false
 ## 更新日志
 ### 2025.03.05 0.8.0
 - 新的参数 -sil, 静默生图, 不返回队列信息等
-- 新的参数 -notice, 工作流执行完成的时候私聊通知, 适用于长工作流
 - 新的参数 -nt, 不要翻译输入 (对于那些输入中文的工作流)
 - 新的命令: dan, 二次元的我, llm-tag, comfyui后端, get-ckpt
+- 优化多后端, 新的reflex参数 reflex, 见 [多后端情况下请求API统一问题](./docs/md/node_control.md#多后端情况下请求API统一问题)
+- 工作流每日调用次数限制, 新的reflex参数 daylimit, 见 [每日次数限制](./docs/md/node_control.md#限制工作流每日调用次数)
 - 新的配置项目 (本README可以找到详细)
 - comfyui_silent 静默生图
 - comfyui_max_dict 设置各种参数的最大值
 - comfyui_openai openai标准api的断点和api token
 - comfyui_text_audit 文字审核
 - comfyui_ai_prompt llm补全/翻译prompt
-- comfyui_translate 翻译prompt
+- comfyui_translate 翻译prompt (暂不支持, 预留, 只支持ai prompt补全)
 ### 2025.02.24 0.7.0
 - 新的参数 -shape / -r  , 预设分辨率(comfyui_shape_preset), 可以使用此参数来快速更改分辨率 (-r 640x640 / -r p)
 - 优化了查看工作流命令以及帮助菜单
