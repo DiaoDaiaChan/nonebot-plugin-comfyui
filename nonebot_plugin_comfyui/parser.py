@@ -23,7 +23,7 @@ comfyui_parser.add_argument("-o", dest="override", action="store_true",
 comfyui_parser.add_argument("-on", dest="override_ng", action="store_true",
                             help="不使用预设的负面提示词 example:prompt -on")
 comfyui_parser.add_argument("-wf", "-工作流", dest="work_flows", type=str,
-                            help="选择工作流 example:prompt -wf 1 / prompt -wf flux", default=config.comfyui_default_workflows)
+                                help="选择工作流 example:prompt -wf 1 / prompt -wf flux", default=None if config.comfyui_random_wf else config.comfyui_default_workflows)
 comfyui_parser.add_argument("-sp", "-采样器", dest="sampler", type=str, help="采样器 example:prompt -sp euler")
 comfyui_parser.add_argument("-sch", "-调度器", dest="scheduler", type=str, help="调度器 example:prompt -sch normal")
 comfyui_parser.add_argument("-b", "-数量", dest="batch_size", type=int, help="每批数量 example:prompt -b 1",
@@ -43,8 +43,8 @@ comfyui_parser.add_argument("-r", "-shape", "-分辨率", dest="shape", type=str
                             help="自定义分辨率的比例字符串 example:prompt -r p / prompt -r 960x1920")
 comfyui_parser.add_argument("-sil", "-静默", dest="silent", action="store_true",
                             help="不返回各种提示消息 example:prompt -sil")
-# comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
-#                             help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
+comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
+                            help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
 comfyui_parser.add_argument("-nt", "-不翻译", dest="no_trans", action="store_true",
                             help="不翻译中文输入 example:prompt -nt")
 
@@ -89,7 +89,7 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
     comfyui_parser.add_argument("-on", dest="override_ng", action="store_true",
                                 help="不使用预设的负面提示词 example:prompt -on")
     comfyui_parser.add_argument("-wf", "-工作流", dest="work_flows", type=str,
-                                help="选择工作流 example:prompt -wf 1 / prompt -wf flux", default=config.comfyui_default_workflows)
+                                help="选择工作流 example:prompt -wf 1 / prompt -wf flux", default=None if config.comfyui_random_wf else config.comfyui_default_workflows)
     comfyui_parser.add_argument("-sp", "-采样器", dest="sampler", type=str, help="采样器 example:prompt -sp euler")
     comfyui_parser.add_argument("-sch", "-调度器", dest="scheduler", type=str, help="调度器 example:prompt -sch normal")
     comfyui_parser.add_argument("-b", "-数量", dest="batch_size", type=int, help="每批数量 example:prompt -b 1",
@@ -111,8 +111,8 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
                                 help="不返回各种提示消息 example:prompt -sil")
     comfyui_parser.add_argument("-nt", "-不翻译", dest="no_trans", action="store_true",
                                 help="不翻译中文输入 example:prompt -nt")
-    # comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
-    #                             help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
+    comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
+                                help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
 
     if reg_args:
 

@@ -99,6 +99,11 @@ async def comfyui_handler(bot: Bot, event: Event, args: Namespace = ShellCommand
     nowtime = datetime.datetime.now().timestamp()
     today_date = datetime.datetime.now().strftime('%Y-%m-%d')  # 获取当前日期
     user_id = event.get_user_id()
+    
+    if user_id in config.comfyui_superusers:
+        msg = f"TIPS: {random.choice(TIPS)}"
+        await comfyui_generate(event, bot, args, msg)
+        return
 
     deltatime = nowtime - cd.get(user_id, 0)
 
@@ -339,3 +344,8 @@ async def llm_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs
     await send_msg_and_revoke(f'这是llm为你生成的prompt: \n {prompt}')
 
     await comfyui_handler(bot, event, args)
+
+
+async def get_task(event: Event, index: str):
+    my_task = await ComfyuiTaskQueue.get_user_task(event.get_user_id())
+    pass

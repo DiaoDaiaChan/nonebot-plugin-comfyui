@@ -105,7 +105,7 @@ class ComfyuiHelp:
             override = wf.get('override', {})
             override_msg = '<br>'.join([f'{k}: {v}' for k, v in override.items()])
 
-            media_type = wf.get('media', "image").capitalize()
+            day_limit = wf.get('daylimit', "无限")
             reg_command = wf.get('command', '')
 
             reg_args = wf.get('reg_args')
@@ -128,7 +128,7 @@ class ComfyuiHelp:
             template = jinja2.Template(row_template)
             row = template.render(
                 index=index,
-                media_type=media_type,
+                day_limit=day_limit,
                 name=name,
                 is_loaded_image=is_loaded_image,
                 image_count=image_count,

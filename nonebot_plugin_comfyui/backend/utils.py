@@ -9,10 +9,13 @@ import traceback
 import aiohttp
 import filetype
 import ssl
+import qrcode
+import time
 
+from urllib.parse import urlparse
 from aiohttp import TCPConnector
 from nonebot import logger
-from ..config import config, PLUGIN_DIR
+from ..config import config, PLUGIN_DIR, BACKEND_URL_LIST
 from ..exceptions import ComfyuiExceptions
 from ..parser import comfyui_parser
 
@@ -447,7 +450,13 @@ async def build_help_text(reg_command):
                 "command": "get-ckpt",
                 "description": "获取指定后端索引的模型",
                 "example": "get-ckpt 0 / get-ckpt 1 "
+            },
+                        {
+                "command": "get-task",
+                "description": "获取自己生成过的任务id, 默认显示前10",
+                "example": "get-task 10-20 (获取10-20个任务的id) "
             }
+            
         ],
         "version": PLUGIN_VERSION
     }
@@ -674,3 +683,76 @@ async def translate_api(tags, to):
 
     return tags
 
+
+async def get_qr(msg, bot):
+    message_data = await bot.send_private_msg(
+        user_id=bot.self_id, 
+        message=await UniMessage.image(raw=msg).export()
+    )
+    message_id = message_data["message_id"]
+    message_all = await bot.get_msg(message_id=message_id)
+    url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    img_url = re.findall(url_regex, str(message_all["message"]))
+    
+    img_id = time.time()
+    img = qrcode.make(img_url[0])
+    
+    file_name = f"qr_code_{img_id}.png"
+    img.save(file_name)
+    with open(file_name, 'rb') as f:
+        bytes_img = f.read()
+        
+    os.remove(file_name)
+        
+    return bytes_img
+
+
+async def is_port_open(host: str, port: int, timeout: int = config.comfyui_timeout) -> bool:
+
+    try:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout
+        )
+        writer.close()
+        await writer.wait_closed()
+        return True
+    except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
+        return False
+
+
+async def get_backend_work_status(self, url: str) -> dict:
+    
+    parsed_url = urlparse(url)
+    host = parsed_url.hostname
+    port = parsed_url.port or (80 if parsed_url.scheme == "http" else 443)
+
+    if not await self.is_port_open(host, port):
+        raise ComfyuiExceptions.ComfyuiBackendConnectionError(f"后端服务 {url} 的端口 {port} 不可达")
+    else:
+        resp = await http_request("GET", target_url=f"{url}/prompt", timeout=config.comfyui_timeout)
+        return resp
+
+
+async def get_ava_backends():
+    
+    backend_dict = {}
+    available_backends = []
+
+    task_list = []
+    for task in BACKEND_URL_LIST:
+        task_list.append(get_backend_work_status(task))
+
+    resp = await asyncio.gather(*task_list, return_exceptions=True)
+
+    for i, backend_url in zip(resp, BACKEND_URL_LIST):
+        backend_index = BACKEND_URL_LIST.index(backend_url)
+        if isinstance(i, Exception):
+            logger.warning(f"后端 {backend_url} 掉线")
+            if backend_index in available_backends:
+                available_backends.remove(backend_index)
+        else:
+            backend_dict[backend_url] = i
+            available_backends.add(backend_index)
+            
+    return available_backends, backend_dict

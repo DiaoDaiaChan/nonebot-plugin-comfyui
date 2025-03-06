@@ -87,6 +87,13 @@ on_alconna(
 # Alconna("get-model", Args["index", int]["model?", str]["search?", str]),
 )
 
+on_alconna(
+    Alconna("get-task", Args["index", str]),
+    priority=5,
+    block=True,
+    handlers=[get_task]
+)
+
 
 async def start_up_func():
 

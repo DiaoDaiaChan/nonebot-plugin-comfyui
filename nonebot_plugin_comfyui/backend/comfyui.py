@@ -21,7 +21,7 @@ from pathlib import Path
 from datetime import datetime
 from itertools import islice
 
-from ..config import config
+from ..config import config, BACKEND_URL_LIST
 from nonebot_plugin_alconna import UniMessage
 from .utils import (
     pic_audit_standalone,
@@ -30,7 +30,9 @@ from .utils import (
     get_and_filter_work_flows,
     http_request,
     translate_api,
-    txt_audit
+    txt_audit,
+    get_qr,
+    get_ava_backends
 )
 from ..exceptions import ComfyuiExceptions
 
@@ -57,8 +59,6 @@ __OVERRIDE_SUPPORT_KEYS__ = {
 }
 
 MODIFY_ACTION = {"output", "reg_args"}
-
-BACKEND_URL_LIST = config.comfyui_url_list
 
 reflex_dict = {'sampler': {
             "DPM++ 2M": "dpmpp_2m",
@@ -116,68 +116,63 @@ class RespMsg:
 
         self.image_byte = []
         
-
 class ComfyuiTaskQueue:
 
-    all_task_id: set = {}
-    all_task_dict: dict = {}
-    user_task: dict = {}
-
-    def __init__(
-            self,
-            bot: Bot = None,
-            event: Event = None,
-            backend: str = None,
-            task_id: str = None,
-            **kwargs
-    ):
-
-        self.bot = bot
-        self.event = event
-        self.user_id = event.get_user_id()
-        self.task_id = task_id
-
-        self.selected_backend = backend
-        if backend is not None and backend.isdigit():
-            self.backend_url = BACKEND_URL_LIST[int(backend)]
-        else:
-            self.backend_url = backend
-
-        self.backend_url: str = self.backend_url if backend else config.comfyui_url
-
-        self.backend = backend
+    all_task_id = set()
+    all_task_dict = {}
+    user_task = {}
 
     @classmethod
-    async def get_user_task(cls, user_id):
-        task_id = cls.user_task.get(user_id, None)
-        task_status_dict = await cls.get_task(task_id)
+    async def get_user_task(cls, user_id: str):
+        user_tasks = cls.user_task.get(user_id, {})
+        if not user_tasks:
+            return None
 
-        return task_status_dict
-
-    @classmethod
-    async def set_user_task(cls, user_id, task_id):
-        cls.user_task.update({user_id: task_id})
-
-    @classmethod
-    async def get_history_task(cls, backend_url) -> set:
-
-        api_url = f"{backend_url}/history"
-
-        resp = await http_request("GET", api_url)
-        cls.all_task_set = set(resp.keys())
-        cls.all_task_dict = resp
-
-        history_id_set = set(islice(resp.keys(), 20))
-
-        return history_id_set
+        return {
+            task_id: await cls.get_task(task_id)
+            for task_id in user_tasks.keys()
+        }
 
     @classmethod
-    async def get_task(cls, task_id: str | None = None) -> dict:
+    async def set_user_task(
+        cls,
+        user_id: str,
+        task_id: str,
+        backend_index: int,
+        work_flow: str,
+        status: str = "pending"
+    ) -> None:
+        
+        if user_id not in cls.user_task:
+            cls.user_task[user_id] = {}
+
+        cls.user_task[user_id][task_id] = {
+            "backend_index": backend_index,
+            "work_flow": work_flow,
+            "status": status,
+        }
+
+        cls.all_task_id.add(task_id)
+
+    @classmethod
+    async def get_task(cls, task_id: Optional[str] = None):
+     
+        if task_id is None:
+            return {}
 
         task_status_dict = cls.all_task_dict.get(task_id, {})
-
         return task_status_dict
 
+    @classmethod
+    async def update_task_status(cls, task_id: str, status: str) -> None:
+
+        if task_id in cls.all_task_dict:
+            cls.all_task_dict[task_id]["status"] = status
+
+        # 更新用户任务中的状态
+        for user_tasks in cls.user_task.values():
+            if task_id in user_tasks:
+                user_tasks[task_id]["status"] = status
 
 class ComfyUIQueue:
     def __init__(self, queue_size=10):
@@ -237,8 +232,11 @@ class ComfyUI:
         self.work_flows = None
 
         # ComfyuiAPI相关
-        if work_flows is None:
+        if work_flows is None and config.comfyui_random_wf is False:
             work_flows = config.comfyui_default_workflows
+            
+        else:
+            work_flows = random.choice(config.comfyui_random_wf_list)
 
         for wf in self.update_wf(index=work_flows if work_flows.strip().isdigit() else None):
 
@@ -841,6 +839,14 @@ class ComfyUI:
 
                             elif ws_msg['type'] == 'executing' and ws_msg['data']['node'] is None:
                                 logger.info(f"{task_id} 执行完成完成!")
+                                await ComfyuiTaskQueue.update_task_status(task_id, 'finish')
+                                if self.notice:
+                                    await run_later(
+                                        self.send_msg_to_private(
+                                            f"你的任务已经完成, 发送 queue -get {task_id} -be {self.backend_index} 获取结果", 
+                                            is_image=False
+                                            )
+                                        )
                                 # 获取返回的文件url
                                 self.resp_msg_list += [await self.get_media(task_id, backend_url)]
                                 await ws.close()
@@ -1002,7 +1008,7 @@ class ComfyUI:
         task_id = respond['prompt_id']
         self.task_id = task_id
 
-        await ComfyuiTaskQueue(backend=self.backend_url, event=self.nb_event).set_user_task(self.user_id, self.task_id)
+        await ComfyuiTaskQueue.set_user_task(self.user_id, task_id, self.backend_index, self.work_flows)
 
         queue_ = self.backend_task.get(self.backend_url, None)
         if queue_:
@@ -1108,7 +1114,7 @@ class ComfyUI:
                     if value is not None:
                         setattr(self, key, value)
 
-    async def send_nsfw_image_to_private(self, image):
+    async def send_msg_to_private(self, msg, is_image=True):
 
         from nonebot.exception import ActionFailed
 
@@ -1117,7 +1123,7 @@ class ComfyUI:
                 from nonebot.adapters.onebot.v11.exception import ActionFailed
                 from nonebot.adapters.onebot.v11 import MessageSegment
 
-                await self.bot.send_private_msg(user_id=self.user_id, message=MessageSegment.image(image))
+                await self.bot.send_private_msg(user_id=self.user_id, message=MessageSegment.image(msg) if is_image else msg)
             else:
                 raise NotImplementedError("暂不支持其他机器人")
 
@@ -1125,10 +1131,10 @@ class ComfyUI:
             if isinstance(e, NotImplementedError):
                 logger.warning("发送失败, 暂不支持其他机器人")
             elif isinstance(e, ActionFailed):
-                await UniMessage.text('图图私聊发送失败了!是不是没加机器人好友...').send()
+                await UniMessage.text('私聊发送失败了!是不是没加机器人好友...').send()
             else:
                 logger.error(f"发生了未知异常: {e}")
-                await UniMessage.text('图图私聊发送失败了!是不是没加机器人好友...').send()
+                await UniMessage.text('私聊发送失败了!是不是没加机器人好友...').send()
 
     async def audit_func(self, media_bytes):
 
@@ -1162,8 +1168,11 @@ class ComfyUI:
                     audit_results = await asyncio.gather(*audit_tasks)
                     for resp_, is_nsfw, file_bytes in audit_results:
                         if is_nsfw:
-                            resp_.resp_img += "\n这张图太涩了,私聊发给你了哦!"
-                            await self.send_nsfw_image_to_private(file_bytes)
+                            if config.comfyui_qr_mode:
+                                resp_.resp_img += UniMessage.image(raw=await get_qr(file_bytes, self.bot))
+                            else:
+                                resp_.resp_img += "\n这张图太涩了,私聊发给你了哦!"
+                                await self.send_msg_to_private(file_bytes)
                         else:
                             resp_.resp_img += UniMessage.image(raw=file_bytes)
 
@@ -1187,13 +1196,8 @@ class ComfyUI:
                         elif file_type == "audio":
                             resp_.resp_audio.append(UniMessage.audio(raw=file_bytes))
 
-    async def get_backend_work_status(self, url):
-
-        resp = await http_request("GET", target_url=f"{url}/prompt", timeout=config.comfyui_timeout)
-        return resp
 
     async def select_backend(self):
-        backend_dict = {}
         fastest_backend_index = None
         # 手动选择后端
         if self.selected_backend:
@@ -1201,23 +1205,9 @@ class ComfyUI:
             if self.selected_backend not in BACKEND_URL_LIST:
                 self.backend_index = -1
                 return self.selected_backend
+            
+        self.available_backends, backend_dict = await get_ava_backends()
 
-        task_list = []
-        for task in BACKEND_URL_LIST:
-            task_list.append(self.get_backend_work_status(task))
-
-        resp = await asyncio.gather(*task_list, return_exceptions=True)
-
-        for i, backend_url in zip(resp, BACKEND_URL_LIST):
-            backend_index = BACKEND_URL_LIST.index(backend_url)
-            if isinstance(i, Exception):
-                logger.warning(f"后端 {backend_url} 掉线")
-                if backend_index in self.available_backends:
-                    self.available_backends.remove(backend_index)
-            else:
-                backend_dict[backend_url] = i
-                self.available_backends.add(backend_index)
-        # 手动选择后端
         if self.selected_backend:
             if self.selected_backend in backend_dict:
                 self.backend_task.update({self.selected_backend: backend_dict[self.selected_backend]})

@@ -1,0 +1,101 @@
+# comfyui后端地址
+comfyui_url: "http://127.0.0.1:8188"
+
+# comfyui后端地址列表
+comfyui_url_list:
+  - "http://127.0.0.1:8188"
+  - "http://127.0.0.1:8288"
+
+# 是否启用多后端支持
+comfyui_multi_backend: false
+
+# 覆写加载模型节点的时候使用的模型
+comfyui_model: ""
+
+# comfyui工作流路径(默认机器人路径/data/comfyui)
+comfyui_workflows_dir: "./data/comfyui"
+
+# 不传入工作流参数的时候默认使用的工作流名称
+comfyui_default_workflows: "txt2img"
+
+# 基础分辨率 ^ 2 (使用-ar 参数的时候插件决定的分辨率)
+comfyui_base_res: 1024
+
+# 是否启动图片审核
+comfyui_audit: true
+
+# 是否启动本地图片审核
+comfyui_audit_local: false
+
+# 图片审核地址(使用sd-webui的tagger插件的API)
+comfyui_audit_site: "http://server.20020026.xyz:7865"
+
+# 审核严格程度, 可选1, 2, 3, 100 数值越大审核越严格, 100为只返回图片到私聊
+comfyui_audit_level: 2
+
+# 是否在图片审核前压缩分辨率
+comfyui_audit_comp: false
+
+# 是否保存媒体文件到本地(机器人路径/data/comfyui)
+comfyui_save_image: true
+
+# 绘画cd
+comfyui_cd: 20
+
+# 每天能画几次/多少秒(重启机器人会重置)
+comfyui_day_limit: 50
+
+# 使用画图所需要的时间来进行限制, 每天能调用多少秒
+comfyui_limit_as_seconds: false
+
+# 请求后端的时候的超时时间
+comfyui_timeout: 5
+
+# 预设的分辨率, 使用 -shape / -r 快速更改分辨率
+comfyui_shape_preset:
+  p: [832, 1216]
+  l: [1216, 832]
+  s: [1024, 1024]
+  lp: [1152, 1536]
+  ll: [1536, 1152]
+  ls: [1240, 1240]
+  up: [960, 1920]
+  ul: [1920, 960]
+
+# 全局静默(不返回小提示或者各种追踪信息)
+comfyui_silent: false
+
+# 用于限制: 最大批数, 张数, 高度, 宽度以及步数
+comfyui_max_dict:
+  batch_size: 2
+  batch_count: 2
+  width: 2048
+  height: 2048
+  steps: 100
+
+# 设置http代理, 用于请求openapi, danbooru
+comfyui_http_proxy: ""
+
+# openapi标准api断点以及apitoken
+comfyui_openai:
+  - "https://api.openai.com"
+  - "sk-xxxxxx"
+
+# 是否对一些文本信息进行审核
+comfyui_text_audit: false
+
+# 是否使用llm翻译,补全中文prompt
+comfyui_ai_prompt: false
+
+# 是否翻译中文prompt(目前只支持llm补全, 暂时无翻译api可用)
+comfyui_translate: false
+
+# 当不传入工作流名称的时候随机选择工作流
+comfyui_random_wf: false
+
+# 自动随机选择工作流列表
+comfyui_random_wf_list:
+  - "txt2img"
+
+# 发现色图的时候使用图片的链接二维码代替
+comfyui_qr_mode: false
