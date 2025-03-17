@@ -1,6 +1,5 @@
 import re
 import json
-import requests
 
 def extract_lora_info(text):
     pattern = r'<lora:([^:]+(?:[^>]*[^:]+)?):([\d.]+)>'
@@ -11,9 +10,11 @@ def extract_lora_info(text):
         lora_dict[key] = float(lora_weight)
     return lora_dict
 
+
 def remove_lora_placeholders(text):
     pattern = r'<lora:[^>]+>'
     return re.sub(pattern, '', text).strip()
+
 
 def insert_lora_nodes(workflow, lora_dict):
     if not lora_dict:
@@ -91,6 +92,7 @@ def insert_lora_nodes(workflow, lora_dict):
 
     return new_workflow
 
+
 def replace_prompt(workflow, prompt_text):
     def replace_in_dict(obj):
         if isinstance(obj, dict):
@@ -102,6 +104,7 @@ def replace_prompt(workflow, prompt_text):
         return obj
 
     return replace_in_dict(workflow)
+
 
 def process_workflow(input_text, pseudo_api_workflow):
     try:
@@ -136,18 +139,11 @@ def process_workflow(input_text, pseudo_api_workflow):
         print(f"处理工作流时出现错误: {e}")
         return None
 
-def submit_workflow(workflow, server_address="127.0.0.1:8188"):
-    api_endpoint = f"http://{server_address}/prompt"
-    response = requests.post(api_endpoint, json={"prompt": workflow})
-    if response.status_code == 200:
-        print("API 请求成功:", response.json())
-    else:
-        print("API 请求失败:", response.text)
 
 # 示例输入文本
 input_text = '<lora:a:0.8>,<lora:b:1.2>,<lora:c-123:1.1>,1girl'
 
-# 从网页中导出的 ComfyUI 的 API 格式 JSON
+# 修改后的伪 API 工作流模板
 pseudo_api_workflow = '''
 {
     "1": {
@@ -196,5 +192,16 @@ if processed_workflow:
     print("处理后的 API 工作流:")
     print(json.dumps(processed_workflow, indent=4))
 
-    # 提交 API 请求
+# 示例 API 请求代码
+import requests
+
+def submit_workflow(workflow, server_address="127.0.0.1:8188"):
+    api_endpoint = f"http://{server_address}/prompt"
+    response = requests.post(api_endpoint, json={"prompt": workflow})
+    if response.status_code == 200:
+        print("API 请求成功:", response.json())
+    else:
+        print("API 请求失败:", response.text)
+
+if processed_workflow:
     submit_workflow(processed_workflow)
