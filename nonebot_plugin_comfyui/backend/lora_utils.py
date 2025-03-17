@@ -48,9 +48,9 @@ def replace_lora_nodes(input_string, base_json):
         # 开始添加新的指定类型节点
         next_node_id_to_use = max(int(id) for id in base_json["prompt"].keys()) + 1
         for _, name, weight in lora_info:
-            if node_type == "LoraLoader":
+            if node_type == "LoraLoader" or node_type == "lora":
                 new_node = {
-                    "class_type": node_type,
+                    "class_type": "LoraLoader",
                     "inputs": {
                         "model": prev_node_output,
                         "lora_name": f"{name}.safetensors",
