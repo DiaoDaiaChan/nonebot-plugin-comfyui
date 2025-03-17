@@ -10,7 +10,7 @@ import aiofiles
 import aiohttp
 import asyncio
 import hashlib
-
+from .lora_utils import replace_lora_nodes
 import nonebot
 
 from tqdm import tqdm
@@ -866,7 +866,10 @@ class ComfyUI:
                             for node, item_ in node_reflex.items():
                                 for k, v in item_.items():
                                     api_json[node]['inputs'][k] = v
-
+        
+        if isinstance(self.prompt, str) and re.search(r'<lora:[^:]+:[^>]+>', self.prompt):
+            api_json = replace_lora_nodes(self.prompt, api_json)
+        
         await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
         return api_json
 
