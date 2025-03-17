@@ -24,6 +24,7 @@ from itertools import islice
 
 from ..config import config, BACKEND_URL_LIST
 from nonebot_plugin_alconna import UniMessage
+from .loraload import process_workflow
 from .utils import (
     pic_audit_standalone,
     run_later,
@@ -987,6 +988,15 @@ class ComfyUI:
 
         if self.backend_url is None:
             raise ComfyuiExceptions.NoAvailableBackendError
+
+        input_text = self.prompt
+        pseudo_api_workflow = json.dumps(self.comfyui_api_json)  # 将工作流转换为 JSON 字符串
+        try:
+            new_workflow = process_workflow(input_text, pseudo_api_workflow)
+            if new_workflow:
+                self.comfyui_api_json = new_workflow  # 使用新的工作流
+        except ComfyuiExceptions.WorkflowProcessingError as e:
+            print(f"捕获到异常: {e}")
 
         # 是否是并发生成
         if self.concurrency:
