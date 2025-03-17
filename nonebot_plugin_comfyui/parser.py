@@ -55,7 +55,7 @@ queue_parser.add_argument("-d", "--delete", dest="delete", type=str, help="从�
 queue_parser.add_argument("-c", "--clear", "-clear", dest="clear", action="store_true", help="清除后端上的所有任务")
 queue_parser.add_argument("-stop", "--stop", dest="stop", action="store_true", help="停止当前生成")
 
-queue_parser.add_argument("-be", "--backend", dest="backend", type=str, help="后端索引或者url", default="0")
+queue_parser.add_argument("-be", "--后端", dest="backend", type=str, help="后端索引或者url", default="0")
 queue_parser.add_argument("-i", "--id", dest="task_id", type=str, help="需要查询的任务id")
 queue_parser.add_argument("-v", "--view", dest="view", action="store_true", help="查看历史任务")
 
@@ -89,7 +89,7 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
     comfyui_parser.add_argument("-on", dest="override_ng", action="store_true",
                                 help="不使用预设的负面提示词 example:prompt -on")
     comfyui_parser.add_argument("-wf", "-工作流", dest="work_flows", type=str,
-                                help="选择工作流 example:prompt -wf 1 / prompt -wf flux", default=config.comfyui_default_workflows)
+                                help="选择工作流 example:prompt -wf 1 / prompt -wf flux", default=wf)
     comfyui_parser.add_argument("-sp", "-采样器", dest="sampler", type=str, help="采样器 example:prompt -sp euler")
     comfyui_parser.add_argument("-sch", "-调度器", dest="scheduler", type=str, help="调度器 example:prompt -sch normal")
     comfyui_parser.add_argument("-b", "-数量", dest="batch_size", type=int, help="每批数量 example:prompt -b 1",

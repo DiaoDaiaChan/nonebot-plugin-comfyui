@@ -42,7 +42,7 @@ MAX_SEED = 2 ** 31
 OTHER_ACTION = {
     "override", "note", "presets", "media",
     "command", "reg_args", "visible", "output_prefix",
-    "daylimit", "lora", "available", "reflex"
+    "daylimit", "lora", "available", "reflex", "only_available"
 }
 
 __OVERRIDE_SUPPORT_KEYS__ = {
@@ -61,43 +61,45 @@ __OVERRIDE_SUPPORT_KEYS__ = {
 
 MODIFY_ACTION = {"output", "reg_args"}
 
-reflex_dict = {'sampler': {
-            "DPM++ 2M": "dpmpp_2m",
-            "DPM++ SDE": "dpmpp_sde",
-            "DPM++ 2M SDE": "dpmpp_2m_sde",
-            "DPM++ 2M SDE Heun": "dpmpp_2m_sde",
-            "DPM++ 2S a": "dpmpp_2s_ancestral",
-            "DPM++ 3M SDE": "dpmpp_3m_sde",
-            "Euler a": "euler_ancestral",
-            "Euler": "euler",
-            "LMS": "lms",
-            "Heun": "heun",
-            "DPM2": "dpm_2",
-            "DPM2 a": "dpm_2_ancestral",
-            "DPM fast": "dpm_fast",
-            "DPM adaptive": "dpm_adaptive",
-            "Restart": "restart",
-            "HeunPP2": "heunpp2",
-            "IPNDM": "ipndm",
-            "IPNDM_V": "ipndm_v",
-            "DEIS": "deis",
-            "DDIM": "ddim",
-            "DDIM CFG++": "ddim",
-            "PLMS": "plms",
-            "UniPC": "uni_pc",
-            "LCM": "lcm",
-            "DDPM": "ddpm",
-        }, 'scheduler': {
-            "Automatic": "normal",
-            "Karras": "karras",
-            "Exponential": "exponential",
-            "SGM Uniform": "sgm_uniform",
-            "Simple": "simple",
-            "Normal": "normal",
-            "ddDDIM": "ddim_uniform",
-            "Beta": "beta"
-        }
-        }
+reflex_dict = {
+    'sampler': {
+        "DPM++ 2M": "dpmpp_2m",
+        "DPM++ SDE": "dpmpp_sde",
+        "DPM++ 2M SDE": "dpmpp_2m_sde",
+        "DPM++ 2M SDE Heun": "dpmpp_2m_sde",
+        "DPM++ 2S a": "dpmpp_2s_ancestral",
+        "DPM++ 3M SDE": "dpmpp_3m_sde",
+        "Euler a": "euler_ancestral",
+        "Euler": "euler",
+        "LMS": "lms",
+        "Heun": "heun",
+        "DPM2": "dpm_2",
+        "DPM2 a": "dpm_2_ancestral",
+        "DPM fast": "dpm_fast",
+        "DPM adaptive": "dpm_adaptive",
+        "Restart": "restart",
+        "HeunPP2": "heunpp2",
+        "IPNDM": "ipndm",
+        "IPNDM_V": "ipndm_v",
+        "DEIS": "deis",
+        "DDIM": "ddim",
+        "DDIM CFG++": "ddim",
+        "PLMS": "plms",
+        "UniPC": "uni_pc",
+        "LCM": "lcm",
+        "DDPM": "ddpm",
+        },
+    'scheduler': {
+        "Automatic": "normal",
+        "Karras": "karras",
+        "Exponential": "exponential",
+        "SGM Uniform": "sgm_uniform",
+        "Simple": "simple",
+        "Normal": "normal",
+        "ddDDIM": "ddim_uniform",
+        "Beta": "beta"
+    }
+}
 
 
 class RespMsg:
@@ -190,12 +192,9 @@ class ComfyuiTaskQueue:
     async def get_user_task(cls, user_id: str):
         user_tasks = cls.user_task.get(user_id, {})
         if not user_tasks:
-            return None
+            return {}
 
-        return {
-            task_id: await cls.get_task(task_id)
-            for task_id in user_tasks.keys()
-        }
+        return user_tasks
 
     @classmethod
     async def set_user_task(
@@ -546,7 +545,7 @@ class ComfyUI:
 
     async def get_media(self, task_id, backend_url):
 
-        global output_error_msg
+        output_error_msg = ''
         build_error_msg = ''
 
         resp_msg = RespMsg(task_id, backend_url)
@@ -1260,7 +1259,6 @@ class ComfyUI:
                         elif file_type == "audio":
                             resp_.resp_audio.append(UniMessage.audio(raw=file_bytes))
 
-
     async def select_backend(self):
         fastest_backend_index = None
         # 手动选择后端
@@ -1299,6 +1297,11 @@ class ComfyUI:
         self.backend_index = BACKEND_URL_LIST.index(self.backend_url)
 
         available_in = self.reflex_json.get('available', None)
+        only_available = self.reflex_json.get('only_available', None)
+
+        if only_available:
+            # 完成这里
+            pass
 
         if available_in:
             ava_backend_inter = set(available_in).intersection(self.available_backends)

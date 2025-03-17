@@ -27,6 +27,9 @@ comfyui_audit: true
 # 是否启动本地图片审核
 comfyui_audit_local: false
 
+# 本地审核使用GPU推理, 自行解决onnxruntime-gpu
+comfyui_audit_gpu: false
+
 # 图片审核地址(使用sd-webui的tagger插件的API)
 comfyui_audit_site: "http://server.20020026.xyz:7865"
 
@@ -78,7 +81,7 @@ comfyui_http_proxy: ""
 
 # openapi标准api断点以及apitoken
 comfyui_openai:
-  - "https://api.openai.com"
+  - "https://api.openai.com/v1"
   - "sk-xxxxxx"
 
 # 是否对一些文本信息进行审核

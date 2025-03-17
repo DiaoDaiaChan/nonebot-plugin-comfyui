@@ -15,7 +15,7 @@ _⭐本插件适配多后端, 可以同时使用多个后端生图哦_
 ## ⭐ 介绍
 
 **支持调用comfyui工作流进行绘画的插件, 支持选择工作流, 调整分辨率等等**
-## 群 687904502 / 116994235
+## 群 687904502 (插件反馈群) / 116994235 (闲聊群)
 
 ## 📜 免责声明
 
@@ -97,6 +97,10 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 - [x] [nonebot2](https://github.com/nonebot/nonebot2): 本项目的基础，非常好用的聊天机器人框架。
 
 ## 更新日志
+### 2025.03.17 0.8.1.2
+- comfyui_openai的断点更改为 "https://api.openai.com/v1" 的形式
+- command现在可以添加别名, 例如, command: ["画", "绘画"]
+- 本地审核使用GPU推理, 自行解决onnxruntime-gpu comfyui_audit_gpu: false
 ### 2025.03.06 0.8.0
 - 新的参数 -sil, 静默生图, 不返回队列信息等
 - 新的参数 -nt, 不要翻译输入 (对于那些输入中文的工作流)

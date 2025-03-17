@@ -598,9 +598,9 @@ async def txt_audit(
         msg,
         prompt='''
         接下来请你对一些聊天内容进行审核,
-        如果内容出现政治/暴恐内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 
+        如果内容出现政治/暴力/恐怖袭击/血腥/内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 
         如果没有则输出<no>,
-        请注意， 和这两项(政治/暴恐)无关的内容不需要你的判断， 最后， 只输出<yes>或者<no>不需要你输出其他内容
+        请注意， 和这几项(政治/暴力/恐怖袭击/血腥)无关的内容不需要你的判断， 最后， 只输出<yes>或者<no>不需要你输出其他内容
         '''
 ):
     try:
@@ -653,6 +653,28 @@ async def download_img(url):
 
 async def translate_api(tags, to):
 
+    async def _api(input: str, to: str):
+        try:
+            url = f"http://{config.trans_api}/translate"
+            headers = {"Content-Type": "application/json"}
+            payload = {"text": input, "to": to}
+            async with aiohttp.ClientSession(
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=3)
+            ) as session:
+                async with session.post(url=url, data=json.dumps(payload)) as resp:
+                    if resp.status != 200:
+                        logger.error(f"自建翻译接口错误, 错误代码{resp.status},{await resp.text()}")
+                        return None
+                    else:
+                        logger.info("自建api翻译成功")
+                        json_ = await resp.json()
+                        result = json_["translated_text"]
+                        return result
+        except:
+            logger.warning(traceback.print_exc())
+            return None
+
     return tags
 
 
@@ -663,7 +685,6 @@ async def get_qr(msg, bot):
     )
     message_id = message_data["message_id"]
     message_all = await bot.get_msg(message_id=message_id)
-    print(message_all)
     url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     img_url = re.findall(url_regex, str(message_all["message"]))[0]
     img_url = img_url.replace("multimedia.nt.qq.com.cn", "gchat.qpic.cn")

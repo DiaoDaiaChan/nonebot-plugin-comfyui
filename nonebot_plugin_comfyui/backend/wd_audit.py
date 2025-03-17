@@ -4,14 +4,12 @@ import base64
 from typing import Tuple, List, Dict
 from io import BytesIO
 from PIL import Image
+from nonebot import logger
 
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 import pandas as pd
 import numpy as np
-
-use_cpu = True
-tf_device_name = '/gpu:0' if not use_cpu else '/cpu:0'
 
 # https://github.com/toriato/stable-diffusion-webui-wd14-tagger
 
@@ -75,7 +73,7 @@ class Interrogator:
         if hasattr(self, 'model') and self.model is not None:
             del self.model
             unloaded = True
-            print(f'Unloaded {self.name}')
+            logger.info(f'Unloaded {self.name}')
 
         if hasattr(self, 'tags'):
             del self.tags
@@ -106,7 +104,7 @@ class WaifuDiffusionInterrogator(Interrogator):
         self.kwargs = kwargs
 
     def download(self) -> Tuple[os.PathLike, os.PathLike]:
-        print(f"Loading {self.name} model file from {self.kwargs['repo_id']}")
+        logger.info(f"Loading {self.name} model file from {self.kwargs['repo_id']}")
 
         model_path = Path(hf_hub_download(
             **self.kwargs, filename=self.model_path))
@@ -118,6 +116,9 @@ class WaifuDiffusionInterrogator(Interrogator):
         model_path, tags_path = self.download()
 
         from onnxruntime import InferenceSession
+        from ..config import config
+
+        use_cpu = config.comfyui_audit_gpu
 
         providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
         if use_cpu:
@@ -125,7 +126,7 @@ class WaifuDiffusionInterrogator(Interrogator):
 
         self.model = InferenceSession(str(model_path), providers=providers)
 
-        print(f'Loaded {self.name} model from {model_path}')
+        logger.info(f'Loaded {self.name} model from {model_path}')
 
         self.tags = pd.read_csv(tags_path)
 

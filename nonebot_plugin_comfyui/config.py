@@ -3,7 +3,7 @@ import shutil
 import yaml as yaml_
 from ruamel.yaml import YAML
 
-from nonebot import get_plugin_config, logger, get_driver
+from nonebot import logger, get_driver
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -28,6 +28,7 @@ class Config(BaseModel):
     comfyui_audit: bool = True
     comfyui_text_audit: bool = False
     comfyui_audit_local: bool = False
+    comfyui_audit_gpu: bool = False
     comfyui_audit_level: int = 2
     comfyui_audit_comp: bool = False
     comfyui_audit_site: str = "http://server.20020026.xyz:7865"
@@ -89,7 +90,7 @@ def check_yaml_is_changed(source_template):
 
 
 yaml = YAML()
-config = Config(**get_driver().config.model_dump())
+config = Config(**get_driver().config.dict())
 
 if not config_file_path.exists():
     logger.info("配置文件不存在,正在创建")

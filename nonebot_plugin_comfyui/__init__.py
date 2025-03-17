@@ -18,8 +18,8 @@ if config.comfyui_audit_local:
         import onnxruntime
     except ModuleNotFoundError:
         logger.info("正在安装本地审核需要的依赖和模型")
-        subprocess.run([sys.executable, "-m", "pip", "install", "pandas", "numpy", "pillow", "huggingface_hub"])
-        subprocess.run([sys.executable, "-m", "pip", "install", "onnxruntime"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "pandas~=2.2.3", "numpy~=2.2.3", "pillow~=11.0.0", "huggingface_hub==0.28.1"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "onnxruntime~=1.20.1"])
 
     logger.info("正在本地审核加载实例")
     from .backend.wd_audit import WaifuDiffusionInterrogator

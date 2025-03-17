@@ -113,12 +113,22 @@ async def start_up_func():
                     reg_args = wf["reg_args"]
 
                 comfyui_parser = await rebuild_parser(wf_name, reg_args)
+                command = wf["command"]
+                command_list = command if isinstance(command, list) else [command]
+
+                build_dict = {
+                    "cmd": command_list[0],
+                    "parser": comfyui_parser,
+                    "priority": 5,
+                    "block": True,
+                    "handlers": [comfyui_handler]
+                }
+
+                if len(command_list) > 1:
+                    build_dict.update({"aliases": set(command_list[1:])})
+
                 on_shell_command(
-                    wf["command"],
-                    parser=comfyui_parser,
-                    priority=5,
-                    block=True,
-                    handlers=[comfyui_handler]
+                    **build_dict
                 )
 
                 logger.info(f"成功注册命令: {wf['command']}")
