@@ -1,5 +1,7 @@
 import re
 import json
+import requests
+
 
 def extract_lora_info(text):
     pattern = r'<lora:([^:]+(?:[^>]*[^:]+)?):([\d.]+)>'
@@ -16,9 +18,9 @@ def remove_lora_placeholders(text):
     return re.sub(pattern, '', text).strip()
 
 
-def insert_lora_nodes(workflow, lora_dict):
+def insert_lora_nodes(workflow, lora_dict, placeholder_index):
     if not lora_dict:
-        return {k: v for k, v in workflow.items() if k != "<loras>"}
+        return workflow
 
     lora_nodes = []
     for lora_name, lora_weight in lora_dict.items():
@@ -33,41 +35,33 @@ def insert_lora_nodes(workflow, lora_dict):
             }
         })
 
-    all_nodes = []
-    lora_placeholder_indices = []
-    index = 0
-    for node_id, node in workflow.items():
-        if node_id == "<loras>":
-            lora_placeholder_indices.append(index)
-        else:
-            all_nodes.append((node_id, node))
-        index += 1
-
-    total_nodes = all_nodes
-    for idx in reversed(lora_placeholder_indices):
-        total_nodes = (
-            total_nodes[:idx] +
-            [(f"lora_{idx+1}_{i+1}", node.copy()) for i, node in enumerate(lora_nodes)] +
-            total_nodes[idx:]
-        )
-
+    all_nodes = list(workflow.items())
     new_workflow = {}
     id_mapping = {}
-    new_id = 1
-    for old_id, node in total_nodes:
-        str_new_id = str(new_id)
-        id_mapping[old_id] = str_new_id
-        new_workflow[str_new_id] = node
-        new_id += 1
+    lora_start_index = int(placeholder_index)
 
-    def update_dependencies(node, prev_model_id="1", prev_clip_id="1"):
+    # 插入 LoRA 节点
+    for i, lora_node in enumerate(lora_nodes):
+        new_id = str(lora_start_index + i)
+        new_workflow[new_id] = lora_node
+        id_mapping[str(lora_start_index + i)] = new_id
+
+    # 处理原有的节点
+    for node_id, node in all_nodes:
+        if node_id == placeholder_index:
+            continue
+        new_id = str(int(node_id) + len(lora_nodes) if int(node_id) > lora_start_index else node_id)
+        id_mapping[node_id] = new_id
+        new_workflow[new_id] = node
+
+    def update_dependencies(node, prev_model_id=None, prev_clip_id=None):
         for input_key, input_value in node.get("inputs", {}).items():
             if isinstance(input_value, list) and len(input_value) > 0 and isinstance(input_value[0], str):
                 if input_value[0] == "placeholder":
                     if input_key == "model":
-                        input_value[0] = prev_model_id
+                        input_value[0] = prev_model_id if prev_model_id else id_mapping[str(int(placeholder_index) - 1)]
                     elif input_key == "clip":
-                        input_value[0] = prev_clip_id
+                        input_value[0] = prev_clip_id if prev_clip_id else id_mapping[str(int(placeholder_index) - 1)]
                 elif input_value[0] in id_mapping:
                     input_value[0] = id_mapping[input_value[0]]
             elif isinstance(input_value, dict):
@@ -77,9 +71,9 @@ def insert_lora_nodes(workflow, lora_dict):
                     if isinstance(sub_value, dict):
                         update_dependencies(sub_value, prev_model_id, prev_clip_id)
 
-    lora_groups = sorted([k for k in new_workflow.keys() if k.startswith("lora_")])
-    prev_model_id = "1"
-    prev_clip_id = "1"
+    lora_groups = sorted([k for k in new_workflow.keys() if int(k) >= lora_start_index])
+    prev_model_id = id_mapping[str(int(placeholder_index) - 1)]
+    prev_clip_id = id_mapping[str(int(placeholder_index) - 1)]
     for node_id in lora_groups:
         node = new_workflow[node_id]
         update_dependencies(node, prev_model_id, prev_clip_id)
@@ -87,7 +81,7 @@ def insert_lora_nodes(workflow, lora_dict):
         prev_clip_id = node_id
 
     for node_id, node in new_workflow.items():
-        if not node_id.startswith("lora_"):
+        if int(node_id) < lora_start_index:
             update_dependencies(node, prev_model_id, prev_clip_id)
 
     return new_workflow
@@ -108,14 +102,15 @@ def replace_prompt(workflow, prompt_text):
 
 def process_workflow(input_text, pseudo_api_workflow):
     try:
-        # 兼容 JSON 格式，确保 <loras> 被正确解析
-        pseudo_api_workflow = pseudo_api_workflow.replace('"<loras>",', '"<loras>": null,')
-        workflow = json.loads(pseudo_api_workflow)
+        # 从 API JSON 中提取 <loras> 信息
+        workflow = pseudo_api_workflow["prompt"]
+        placeholder_index = workflow.pop("<loras>", None)
 
         lora_info = extract_lora_info(input_text)
         prompt_text = remove_lora_placeholders(input_text)
 
-        workflow = insert_lora_nodes(workflow, lora_info)
+        if placeholder_index:
+            workflow = insert_lora_nodes(workflow, lora_info, placeholder_index)
         workflow = replace_prompt(workflow, prompt_text)
 
         # 验证工作流格式
@@ -126,9 +121,10 @@ def process_workflow(input_text, pseudo_api_workflow):
                 if isinstance(input_value, list) and len(input_value) > 1:
                     dep_id = input_value[0]
                     if dep_id not in workflow:
+                        print(f"节点 {node_id} 的输入 {input_key} 依赖不存在的节点 {dep_id}")
                         raise ValueError(f"节点 {node_id} 的输入 {input_key} 依赖不存在的节点 {dep_id}")
 
-        return workflow
+        return {"prompt": workflow}
     except json.JSONDecodeError as e:
         print(f"JSON 解析错误: {e}")
         return None
@@ -143,47 +139,9 @@ def process_workflow(input_text, pseudo_api_workflow):
 # 示例输入文本
 input_text = '<lora:a:0.8>,<lora:b:1.2>,<lora:c-123:1.1>,1girl'
 
-# 修改后的伪 API 工作流模板
-pseudo_api_workflow = '''
-{
-    "1": {
-        "class_type": "CheckpointLoaderSimple",
-        "inputs": {
-            "ckpt_name": "dreamshaper_8.safetensors"
-        }
-    },
-    "<loras>": null,
-    "3": {
-        "class_type": "CLIPTextEncode",
-        "inputs": {
-            "text": "<prompt>",
-            "clip": ["1", 1]
-        }
-    },
-    "<loras>": null,
-    "4": {
-        "class_type": "KSampler",
-        "inputs": {
-            "model": ["1", 0],
-            "positive": ["3", 0],
-            "negative": ["3", 0],
-            "latent_image": ["5", 0],
-            "steps": 20,
-            "cfg": 7,
-            "sampler_name": "euler",
-            "scheduler": "normal"
-        }
-    },
-    "5": {
-        "class_type": "EmptyLatentImage",
-        "inputs": {
-            "width": 512,
-            "height": 512,
-            "batch_size": 1
-        }
-    }
-}
-'''
+api_workflow = "api_workflow.json"
+with open(api_workflow, "r", encoding="utf-8") as f:
+    pseudo_api_workflow = json.load(f)
 
 # 处理工作流
 processed_workflow = process_workflow(input_text, pseudo_api_workflow)
@@ -191,17 +149,3 @@ processed_workflow = process_workflow(input_text, pseudo_api_workflow)
 if processed_workflow:
     print("处理后的 API 工作流:")
     print(json.dumps(processed_workflow, indent=4))
-
-# 示例 API 请求代码
-import requests
-
-def submit_workflow(workflow, server_address="127.0.0.1:8188"):
-    api_endpoint = f"http://{server_address}/prompt"
-    response = requests.post(api_endpoint, json={"prompt": workflow})
-    if response.status_code == 200:
-        print("API 请求成功:", response.json())
-    else:
-        print("API 请求失败:", response.text)
-
-if processed_workflow:
-    submit_workflow(processed_workflow)
