@@ -381,14 +381,18 @@ async def get_task(event: Event, index):
     start, end = map(int, index.split('-'))
 
     my_task = await ComfyuiTaskQueue.get_user_task(event.get_user_id())
-    my_task = list(my_task.keys())
+    my_task = list(my_task.items())
 
     tasks_in_range = my_task[start:end + 1]
-
     msg = '这是你的任务: \n'
 
-    for task in tasks_in_range:
-        msg += f'{task}\n'
+    for task_id, task_info in tasks_in_range:
+        msg += (
+            f"任务ID: {task_id}\n"
+            f"后端索引: {task_info['backend_index']}\n"
+            f"工作流: {task_info['work_flow']}\n"
+            f"状态: {task_info['status']}\n\n"
+        )
 
     await UniMessage.text(msg).send()
 

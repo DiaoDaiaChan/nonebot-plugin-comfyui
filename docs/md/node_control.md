@@ -4,7 +4,7 @@
 ## 答: 因为comfyui的工作流导出的时候, 使用的参数固定死了(比如种子, 分辨率, 步数等等), 本功能就可以选择哪些参数进行定制化(例如重新输入分辨率等等)
 ***
 ## 在开始之前, 准备API格式的JSON文件
-### 首先,本插件必须要有一个Save Image节点来输出
+### 首先,对于图片工作流来说必须要有一个Save Image(Preview Image也行)节点来输出
 ![emb](../image/setting4.png)
 ### 之后, 导出API格式的JSON工作流文件
 ![emb](../image/setting1.png)  
@@ -186,14 +186,33 @@
 ## override
 
 - 覆写节点, 可以为工作流加载默认的参数, 例如
-- 支持的键prompt, negative_prompt, accept_ratio, seed, steps, cfg_scale, denoise_strength, height, width, video, work_flows, sampler, scheduler, batch_size, model
-```json
+- 支持的键prompt, negative_prompt, accept_ratio, seed, steps, cfg_scale, denoise_strength, height, width, work_flows, sampler, scheduler, batch_size, model, override, override_ng, backend, batch_count, forward, concurrency, shape, silent, notice, no_trans  
+```
 {
-  "override": {
-    "cfg_scale": 7.5,
-    "height": 512,
-    "width": 768,
-    "steps": 35
+"override": {
+  "prompt": "",  # 提示词
+  "negative_prompt": "",  # 负面提示词
+  "accept_ratio": "2:1",  # 画幅比例
+  "seed": 123456,  # 种子
+  "steps": 35,  # 迭代步数
+  "cfg_scale": 7.5,   # cfg
+  "denoise_strength": 0.7,  # 降噪强度
+  "height": 512,  # 图像高度
+  "width": 768,  # 图像宽度
+  "work_flows": "default",  # 选择的工作流
+  "sampler": "Euler a",  # 采样器
+  "scheduler": "normal",  # 调度器
+  "batch_size": 1,  # 每批次数量
+  "batch_count": 1,  # 总批次
+  "model": "stable-diffusion-v1-5.ckpt",  # 模型
+  "override": false,  # 不使用内置正面提示词
+  "override_ng": false,  # 不使用内置负面提示词
+  "forward": false,  # 转发消息
+  "concurrency": false,  # 并发
+  "shape": "832x1216",  # 也是默认分辨率 
+  "silent": false,  # 静默生图
+  "notice": false,  # 执行完成后通知
+  "no_trans": false  # 不翻译提示词
   }
 }
 ```
@@ -211,6 +230,7 @@
 
 ## media
 - 标记此工作流的输出类型(是图像(image), 文字(text), 还是视频(video)), 不填写的话默认图片
+- 不推荐使用, 可以看看上面(output)讲到的混合输出模式
 ```json
 {
   "media": "text"
