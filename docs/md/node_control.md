@@ -251,6 +251,16 @@
   "command": "打标",
   "load_image": 85
 }
+
+```
+- 我们可以使用别名, 例如
+```json
+{
+  "media": "text",
+  "output": 87,
+  "command": ["打标", "tagger", "分析"],
+  "load_image": 85
+}
 ```
 ![emb](../image/command.png)
 ![emb](../image/command2.png)
@@ -383,6 +393,40 @@
 ```
 - 意为, 当此工作流请求到0号后端的时候, 为4号节点的ckpt_name参数应用NoobXL-EPS-v1.1.safetensors
 
+## 自动加载lora
+- 请注意, 使用本功能节点id会累加(第一个lora#11, 第二个#12, 以此类推), 如果和其他节点id冲突会报错, 所以可以把节点id改的比较大一些
+- 配合comfyui_auto_lora使用, 当comfyui_auto_lora启动的时候, 此项目才有效
+- 支持两种配置模式
+- 导出的工作流需要拥有一个lora加载节点, 直接填写其对应的id即可
+- prompt "\<lora:nikki:1.1>, \<lora:chenbin:1.1>" (自动加载nikki和chenbin lora模型)
+```json
+{
+"lora": 11
+}
+```
+- 第二种方法比较灵活也比较麻烦
+- 导出的工作流**不需要**, **不需要**, **不需要**lora加载节点
+- prompt "\<lora:nikki:1.1>, \<lora:chenbin:1.1>" (自动加载nikki和chenbin lora模型)
+- 比较复杂, 看图
+- ![emb](../image/lora.png)
+```
+{
+  "lora": [
+    {  
+      "11" # 手动为它分配一个节点id 11: {
+        "from": {
+          "model": 4,
+          "clip": 4
+        },
+        "to": {
+          "model": [3],
+          "clip": [6,7]
+        }
+      }
+    }
+  ]
+}
+```
 # 高级节点覆写操作
 
 ## append_prompt / append_negative_prompt

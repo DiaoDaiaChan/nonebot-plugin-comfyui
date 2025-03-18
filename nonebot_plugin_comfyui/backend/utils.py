@@ -426,6 +426,11 @@ async def build_help_text(reg_command):
                 "example": "get-ckpt 0 / get-ckpt 1 "
             },
             {
+                "command": "get-loras",
+                "description": "获取指定后端索引的lora模型",
+                "example": "get-loras 0 / get-loras 1 "
+            },
+            {
                 "command": "get-task",
                 "description": "获取自己生成过的任务id, 默认显示前10",
                 "example": "get-task 10-20 (获取10-20个任务的id) "
@@ -615,10 +620,10 @@ async def txt_audit(
         prompt = [{"role": "user", "content": msg}]
 
         response_data = await http_request(
-            "POST", config.comfyui_openai[0] + "/v1/chat/completions",
-            headers={"Authorization": config.comfyui_openai[1]},
+            "POST", config.comfyui_openai['endpoint'] + "/chat/completions",
+            headers={"Authorization": config.comfyui_openai["token"]},
             content=json.dumps({
-                    "model": "gpt-3.5-turbo",
+                    "model": config.comfyui_openai.get("params")['model'],
                     "messages": system + prompt,
                     "max_tokens": 4000,
             }),
@@ -749,3 +754,18 @@ async def get_ava_backends():
             available_backends.add(backend_index)
             
     return available_backends, backend_dict
+
+
+def weighted_choice(choices):
+    total = sum(w for c, w in choices)
+    r = random.uniform(0, total)
+    upto = 0
+    for c, w in choices:
+        if upto + w > r:
+            return c
+        upto += w
+
+
+async def get_all_loras(backend_url):
+    resp = await http_request("GET", f"{backend_url}/object_info/LoraLoader")
+    return resp['LoraLoader']['input']['required']['lora_name'][0]

@@ -90,6 +90,15 @@ on_alconna(
 )
 
 on_alconna(
+    Alconna("get-loras", Args["index", int]),
+    priority=5,
+    block=True,
+    handlers=[get_loras],
+    use_cmd_start=True,
+    aliases={"get-lora"}
+)
+
+on_alconna(
     Alconna("get-task", Args["index?", str]),
     priority=5,
     block=True,

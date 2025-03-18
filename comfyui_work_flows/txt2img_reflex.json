@@ -9,5 +9,19 @@
   "reflex": {
     "0" : {"4":  {"ckpt_name":  "NoobXL-EPS-v1.1.safetensors"}
     }
-  }
+  },
+  "lora": [
+    {
+      "11": {
+        "from": {
+          "model": 4,
+          "clip": 4
+        },
+        "to": {
+          "model": [3],
+          "clip": [6,7]
+        }
+      }
+    }
+  ]
   }

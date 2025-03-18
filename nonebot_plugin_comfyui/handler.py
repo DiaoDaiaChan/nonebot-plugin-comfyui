@@ -12,7 +12,7 @@ from nonebot.adapters import Event
 from nonebot.params import ShellCommandArgs, Matcher
 
 from nonebot_plugin_alconna import UniMessage
-from .backend.utils import send_msg_and_revoke, get_file_url, http_request, txt_audit, get_image
+from .backend.utils import send_msg_and_revoke, get_file_url, http_request, txt_audit, get_image, get_all_loras
 from .amusement import *
 from .backend import ComfyUI
 from .config import config
@@ -358,6 +358,20 @@ async def get_checkpoints(
     await comfyui_instance.send_all_msg()
 
 
+async def get_loras(
+    bot: Bot,
+    event: Event,
+    index: int
+):
+    comfyui_instance = ComfyUI(nb_event=event, bot=bot)
+
+    lora_list = await get_all_loras(config.comfyui_url_list[index])
+    ckpt_msg = "\n".join(lora_list)
+    comfyui_instance.unimessage += ckpt_msg
+
+    await comfyui_instance.send_all_msg()
+
+
 async def llm_handler(bot: Bot, event: Event, args: Namespace = ShellCommandArgs()):
     prompt = await get_user_session(event.get_session_id()).main(','.join(args.prompt))
     resp = await txt_audit(prompt)
@@ -384,6 +398,7 @@ async def get_task(event: Event, index):
     my_task = list(my_task.items())
 
     tasks_in_range = my_task[start:end + 1]
+    tasks_in_range.sort(reverse=True)
     msg = '这是你的任务: \n'
 
     for task_id, task_info in tasks_in_range:

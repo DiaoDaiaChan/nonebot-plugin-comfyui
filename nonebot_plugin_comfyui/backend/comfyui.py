@@ -1,11 +1,11 @@
 import copy
 import json
 import random
-import traceback
 import uuid
 import os
 import re
 
+import traceback
 import aiofiles
 import aiohttp
 import asyncio
@@ -33,7 +33,9 @@ from .utils import (
     translate_api,
     txt_audit,
     get_qr,
-    get_ava_backends
+    get_ava_backends,
+    weighted_choice,
+    get_all_loras
 )
 from ..exceptions import ComfyuiExceptions
 
@@ -96,10 +98,60 @@ reflex_dict = {
         "SGM Uniform": "sgm_uniform",
         "Simple": "simple",
         "Normal": "normal",
-        "ddDDIM": "ddim_uniform",
+        "DDIM": "ddim_uniform",
         "Beta": "beta"
     }
 }
+
+
+class DefaultValue:
+    width: int = 832
+    height: int = 1216
+    accept_ratio: str = None
+    shape: str = None
+    steps: int = 28
+    cfg_scale: float = 7.0
+    denoise_strength: float = 1.0
+    sampler: str = "dpmpp_2m"
+    scheduler: str = "karras"
+    batch_size: int = 1
+    batch_count: int = 1
+    model = ""
+    override: bool = False
+    override_ng: bool = False
+    forward: bool = False
+
+    preset_prompt: str = ''
+    preset_negative_prompt: str = ''
+
+    @staticmethod
+    def set_default_value(params_dict):
+        for key, value in params_dict.items():
+            if hasattr(DefaultValue, key):
+                setattr(DefaultValue, key, value)
+
+    def __init__(self):
+        if config.comfyui_random_params_enable:
+            for k, v in config.comfyui_random_params.items():
+                if hasattr(self, k):
+                    set_value = weighted_choice(v)
+                    setattr(self, k, set_value)
+
+    def override_value(self):
+        if config.comfyui_random_params_enable:
+            for k, v in config.comfyui_random_params.items():
+                if hasattr(self, k):
+                    set_value = weighted_choice(v)
+                    setattr(self, k, set_value)
+
+    def get_default_value_instance(self):
+        if config.comfyui_random_params_enable:
+            return self
+        else:
+            return DefaultValue
+
+
+DefaultValue.set_default_value(config.comfyui_default_value)
 
 
 class RespMsg:
@@ -285,6 +337,7 @@ class ComfyUI:
             no_trans: Optional[bool] = False,
             **kwargs
     ):
+        default_value = DefaultValue().get_default_value_instance()
 
         # 映射参数相关
         if prompt is None:
@@ -320,40 +373,44 @@ class ComfyUI:
         self.bot = bot
 
         # 绘图参数相关
-        self.prompt: str = prompt
-        self.negative_prompt: str = negative_prompt
+        self.prompt: str = [default_value.preset_prompt] +prompt if default_value.preset_prompt else prompt
+        self.negative_prompt: str = [default_value.preset_negative_prompt] + negative_prompt if default_value.preset_negative_prompt else negative_prompt
         
-        self.accept_ratio: str = accept_ratio
+        self.accept_ratio: str = accept_ratio or default_value.shape
         if self.accept_ratio is None:
-            self.height: int = height or 1216
-            self.width: int = width or 832
+            self.height: int = height or default_value.height
+            self.width: int = width or default_value.width
         else:
             self.width, self.height = self.extract_ratio()
-        self.shape: str = shape
+        self.shape: str = shape or default_value.shape
 
         self.seed: int = seed or random.randint(0, MAX_SEED)
-        self.steps: int = steps or 20
-        self.cfg_scale: float = cfg_scale or 7.0
-        self.denoise_strength: float = denoise_strength or 1.0
+        self.steps: int = steps or default_value.steps
+        self.cfg_scale: float = cfg_scale or default_value.cfg_scale
+        self.denoise_strength: float = denoise_strength or default_value.denoise_strength
 
         self.sampler: str = (
             self.reflex_dict['sampler'].get(sampler, "dpmpp_2m") if
             sampler not in self.reflex_dict['sampler'].values() else
-            sampler or "dpmpp_2m"
+            sampler or default_value.sampler
         )
         self.scheduler: str = (
             self.reflex_dict['scheduler'].get(scheduler, "normal") if
             scheduler not in self.reflex_dict['scheduler'].values() else
-            scheduler or "karras"
+            scheduler or default_value.scheduler
         )
 
-        self.batch_size: int = batch_size or 1
-        self.batch_count: int = batch_count or 1
+        self.batch_size: int = batch_size or default_value.batch_size
+        self.batch_count: int = batch_count or default_value.batch_count
         self.total_count: int = self.batch_count * self.batch_size
-        self.model: str = model or config.comfyui_model
-        self.override = override
-        self.override_ng = override_ng
-        self.forward: bool = forward
+        self.model: str = model or config.comfyui_model or default_value.model
+        self.override = override or default_value.override
+        self.override_ng = override_ng or default_value.override_ng
+        self.forward: bool = forward or default_value.forward
+        self.loras: list = []
+
+        self.preset_prompt = default_value.preset_prompt
+        self.preset_negative_prompt = default_value.preset_negative_prompt
 
         self.comfyui_api_json = None
         self.reflex_json = None
@@ -743,7 +800,10 @@ class ComfyUI:
                     id_ = str(id_)
                     update_dict = api_json.get(id_, None)
                     if update_dict and item in update_mapping:
-                        api_json[id_]['inputs'].update(update_mapping[item])
+                        inputs_dict = update_dict.get('inputs', {})
+                        for key, value in update_mapping[item].items():
+                            if key in inputs_dict:
+                                inputs_dict[key] = value
 
                 if isinstance(org_node_id, dict) and item not in MODIFY_ACTION:
                     for node, override_dict in org_node_id.items():
@@ -812,7 +872,10 @@ class ComfyUI:
                         else:
                             update_dict = api_json.get(node, None)
                             if update_dict and item in update_mapping:
-                                api_json[node]['inputs'].update(update_mapping[item])
+                                inputs_dict = update_dict.get('inputs', {})
+                                for key, value in update_mapping[item].items():
+                                    if key in inputs_dict:
+                                        inputs_dict[key] = value
 
             else:
                 if item == "reg_args":
@@ -867,6 +930,162 @@ class ComfyUI:
                                 for k, v in item_.items():
                                     api_json[node]['inputs'][k] = v
 
+                elif item == "lora" and self.loras:
+
+                    lora_template = {
+                        "inputs": {
+                            "lora_name": "diaodiao-000005.safetensors",
+                            "strength_model": 1,
+                            "strength_clip": 1,
+                            "model": [
+                                "4",
+                                0
+                            ],
+                            "clip": [
+                                "4",
+                                1
+                            ]
+                        },
+                        "class_type": "LoraLoader",
+                        "_meta": {
+                            "title": "Load LoRA"
+                        }
+                    }
+                    build_lora_node = {}
+
+                    if isinstance(node_id, list):
+                        lora_node = node_id
+                        for node in lora_node:
+
+                            for k, v in node.items():
+
+                                if len(self.loras) == 1:
+                                    tmp_lora_template = copy.deepcopy(lora_template)
+                                    self_node_id = k
+                                    from_model_node_id = v['from']['model']
+                                    from_clip_node_id = v['from']['clip']
+
+                                    lora_name, lora_weight = self.loras[0]
+
+                                    tmp_lora_template['inputs']['model'][0] = str(from_model_node_id)
+                                    tmp_lora_template['inputs']['clip'][0] = str(from_clip_node_id)
+
+                                    tmp_lora_template['inputs']['strength_model'] = lora_weight
+                                    tmp_lora_template['inputs']['strength_clip'] = lora_weight
+                                    tmp_lora_template['inputs']['lora_name'] = lora_name
+
+                                    for k, v in v['to'].items():
+                                        if k == "model":
+                                            for node_ in v:
+                                                api_json[str(node_)]['inputs'][k][0] = str(self_node_id)
+                                        elif k == "clip":
+                                            for node_ in v:
+                                                api_json[str(node_)]['inputs'][k][0] = str(self_node_id)
+
+                                    build_lora_node[str(self_node_id)] = tmp_lora_template
+                                else:
+                                    self_node_id = int(k) - 1
+                                    from_model_node_id = str(v['from']['model'])
+                                    from_clip_node_id = str(v['from']['clip'])
+
+                                    for index, (lora_name, lora_weight) in enumerate(self.loras):
+                                        tmp_lora_template = copy.deepcopy(lora_template)
+                                        self_node_id += 1
+
+                                        if index == 0:
+                                            final_model_node_id = from_model_node_id
+                                            final_clip_node_id = from_clip_node_id
+
+                                        elif index != len(self.loras) - 1:
+                                            final_model_node_id = str(self_node_id-1)
+                                            final_clip_node_id = str(self_node_id-1)
+
+                                        else:
+                                            final_model_node_id = str(self_node_id-1)
+                                            final_clip_node_id = str(self_node_id-1)
+
+                                            for k, v in v['to'].items():
+                                                if k == "model":
+                                                    for node_ in v:
+                                                        api_json[str(node_)]['inputs'][k][0] = str(self_node_id)
+                                                elif k == "clip":
+                                                    for node_ in v:
+                                                        api_json[str(node_)]['inputs'][k][0] = str(self_node_id)
+
+                                        tmp_lora_template['inputs']['model'][0] = final_model_node_id
+                                        tmp_lora_template['inputs']['clip'][0] = final_clip_node_id
+
+                                        tmp_lora_template['inputs']['strength_model'] = lora_weight
+                                        tmp_lora_template['inputs']['strength_clip'] = lora_weight
+                                        tmp_lora_template['inputs']['lora_name'] = lora_name
+                                        tmp_lora_template['_meta']['title'] = "nonebot_plugin_comfyui auto load"
+
+                                        build_lora_node[str(self_node_id)] = tmp_lora_template
+
+                    else:
+
+                        if len(self.loras) != 1:
+                            link_model_list = []
+                            link_clip_list = []
+
+                            for apijson_node_id, node_data in api_json.items():
+                                match_model_node = node_data['inputs'].get('model')
+                                match_clip_node = node_data['inputs'].get('clip')
+                                if match_model_node:
+                                    if match_model_node[0] == str(node_id):
+                                        link_model_list.append(apijson_node_id)
+                                if match_clip_node:
+                                    if match_clip_node[0] == str(node_id):
+                                        link_clip_list.append(apijson_node_id)
+
+                        enum_node = node_id - 1
+                        for index, (lora_name, lora_weight) in enumerate(self.loras):
+                            tmp_lora_template = copy.deepcopy(lora_template)
+                            enum_node += 1
+
+                            if index == 0:
+                                raw_lora_data = api_json[str(node_id)]
+
+                                raw_lora_data['inputs']['strength_model'] = lora_weight
+                                raw_lora_data['inputs']['strength_clip'] = lora_weight
+                                raw_lora_data['inputs']['lora_name'] = lora_name
+
+                                build_lora_node[str(node_id)] = raw_lora_data
+
+                            elif index != len(self.loras) - 1:
+                                final_model_node_id = str(enum_node - 1)
+                                final_clip_node_id = str(enum_node - 1)
+
+                                tmp_lora_template['inputs']['model'][0] = final_model_node_id
+                                tmp_lora_template['inputs']['clip'][0] = final_clip_node_id
+
+                                tmp_lora_template['inputs']['strength_model'] = lora_weight
+                                tmp_lora_template['inputs']['strength_clip'] = lora_weight
+                                tmp_lora_template['inputs']['lora_name'] = lora_name
+                                tmp_lora_template['_meta']['title'] = "nonebot_plugin_comfyui auto load"
+                                build_lora_node[str(enum_node)] = tmp_lora_template
+
+                            else:
+                                final_model_node_id = str(enum_node - 1)
+                                final_clip_node_id = str(enum_node - 1)
+
+                                for model_ in link_model_list:
+                                    api_json[str(model_)]['inputs']['model'][0] = str(enum_node)
+                                for clip_ in link_clip_list:
+                                    api_json[str(clip_)]['inputs']['clip'][0] = str(enum_node)
+
+                                tmp_lora_template['inputs']['model'][0] = final_model_node_id
+                                tmp_lora_template['inputs']['clip'][0] = final_clip_node_id
+
+                                tmp_lora_template['inputs']['strength_model'] = lora_weight
+                                tmp_lora_template['inputs']['strength_clip'] = lora_weight
+                                tmp_lora_template['inputs']['lora_name'] = lora_name
+                                tmp_lora_template['_meta']['title'] = "nonebot_plugin_comfyui auto load"
+                                build_lora_node[str(enum_node)] = tmp_lora_template
+
+                    api_json.update(build_lora_node)
+
+        logger.debug(api_json)
         await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
         return api_json
 
@@ -961,6 +1180,42 @@ class ComfyUI:
             tags = all_tags
         return tags
 
+    async def get_lora_from_prompt(self):
+
+        loras = []
+        clean_parts = []
+
+        for part in self.prompt.split(','):
+            part = part.strip()
+            if part.startswith('<lora:') and part.endswith('>'):
+                content = part[6:-1]
+                style, value = content.split(':', 1)
+                loras.append((style.strip(), float(value.strip())))
+            else:
+                clean_parts.append(part)
+
+        self.prompt = ', '.join(clean_parts)
+        return loras
+
+    async def get_apply_loras(self):
+
+        if not config.comfyui_auto_lora:
+            return
+
+        loras = await self.get_lora_from_prompt()
+
+        if not loras:
+            return
+        else:
+            all_loras = await get_all_loras(self.backend_url)
+
+            for lora_name, lora_weight in loras:
+                for lora in all_loras:
+                    if lora_name in lora:
+                        logger.info(f"找到lora: {lora}")
+                        self.loras.append((lora, lora_weight))
+                        break
+
     async def exec_generate(self, daily_call=None):
 
         # 获取工作流json
@@ -1017,6 +1272,8 @@ class ComfyUI:
 
     async def posting(self):
 
+        await self.get_apply_loras()
+
         # 获取reflex json
         if self.reflex_json.get('override', None):
             self.override_backend_setting_dict = self.reflex_json['override']
@@ -1059,7 +1316,7 @@ class ComfyUI:
         respond = await http_request(
             method="POST",
             target_url=f"{self.backend_url}/prompt",
-            content=json.dumps(input_)
+            content=json.dumps(input_, indent=2)
         )
 
         if respond.get("error", None):
