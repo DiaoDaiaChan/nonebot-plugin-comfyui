@@ -1,8 +1,10 @@
 import re
 import json
+import asyncio
+import aiohttp
 
 
-def replace_lora_nodes(input_string, base_json):
+async def replace_lora_nodes(input_string, base_json, url):
     # 正则表达式用于匹配 <lora:name:weight> 或 <nodename:name:weight> 格式
     lora_pattern = r'<([^:]+):([^:]+):([^>]+)>'
     lora_matches = re.findall(lora_pattern, input_string)
@@ -49,6 +51,20 @@ def replace_lora_nodes(input_string, base_json):
         if node_type in existing_node_types:
             valid_lora_info.append((node_type, name, weight))
 
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(f"{url}/object_info/LoraLoader") as response:
+                response.raise_for_status()
+                lora_loader_info = await response.json()
+                available_loras = []
+                for sublist in lora_loader_info.get("LoraLoader", {}).get("input", {}).get("required", {}).get("lora_name", []):
+                    for item in sublist:
+                        if ".safetensors" in item:
+                            available_loras.append(item.split('.')[0])
+        except aiohttp.ClientError as e:
+            print(f"请求错误: {e}")
+            available_loras = []
+
     for node_type, _, _ in valid_lora_info:
         # 找出原有的指定类型节点及其前后连接的节点
         node_id = None
@@ -91,18 +107,25 @@ def replace_lora_nodes(input_string, base_json):
         next_node_id_to_use = max(int(id) for id in base_json.keys()) + 1
         for _, name, weight in valid_lora_info:
             if node_type == "LoraLoader" or node_type == "lora":
-                new_node = {
-                    "class_type": "LoraLoader",
-                    "inputs": {
-                        "model": prev_node_output,
-                        "lora_name": f"{name}.safetensors",
-                        "strength_model": weight,
-                        "strength_clip": weight
-                    },
-                    "_meta": {
-                        "title": "Lora Loader"
+                for sub_name in name.split(','):
+                    sub_name = sub_name.strip()
+                    if sub_name not in available_loras:
+                        continue
+                    new_node = {
+                        "class_type": "LoraLoader",
+                        "inputs": {
+                            "model": prev_node_output,
+                            "lora_name": f"{sub_name}.safetensors",
+                            "strength_model": weight,
+                            "strength_clip": weight
+                        },
+                        "_meta": {
+                            "title": "Lora Loader"
+                        }
                     }
-                }
+                    base_json[str(next_node_id_to_use)] = new_node
+                    prev_node_output = [str(next_node_id_to_use), 0]
+                    next_node_id_to_use += 1
             else:
                 # 这里可以根据不同的节点类型进行更详细的输入配置
                 new_node = {
@@ -117,10 +140,9 @@ def replace_lora_nodes(input_string, base_json):
                         "title": f"{node_type} Node"
                     }
                 }
-            base_json[str(next_node_id_to_use)] = new_node
-            # 更新下一个节点的输入模型
-            prev_node_output = [str(next_node_id_to_use), 0]
-            next_node_id_to_use += 1
+                base_json[str(next_node_id_to_use)] = new_node
+                prev_node_output = [str(next_node_id_to_use), 0]
+                next_node_id_to_use += 1
 
         # 如果找到后续连接的节点，更新其输入
         if next_node_id and next_node_input_key:
@@ -266,8 +288,11 @@ base_json = {
     }
 }
 
+# 假设的url
+url = "http://example.com"
+
 # 调用函数替换节点
-updated_json = replace_lora_nodes(input_string, base_json)
+updated_json = asyncio.run(replace_lora_nodes(input_string, base_json, url))
 
 # 打印更新后的工作流 JSON 数据
 print(json.dumps(updated_json, indent=4))
