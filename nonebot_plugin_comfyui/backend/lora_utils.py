@@ -1,6 +1,7 @@
 import re
 import json
 
+
 def replace_lora_nodes(input_string, base_json):
     # 正则表达式用于匹配 <lora:name:weight> 或 <nodename:name:weight> 格式
     lora_pattern = r'<([^:]+):([^:]+):([^>]+)>'
@@ -42,7 +43,13 @@ def replace_lora_nodes(input_string, base_json):
             base_json[next_node_id]["inputs"][next_node_input_key] = prev_node_output
             del base_json[node_id]
 
-    for node_type, _, _ in lora_info:
+    # 过滤掉在 base_json 中不存在的节点类型
+    valid_lora_info = []
+    for node_type, name, weight in lora_info:
+        if node_type in existing_node_types:
+            valid_lora_info.append((node_type, name, weight))
+
+    for node_type, _, _ in valid_lora_info:
         # 找出原有的指定类型节点及其前后连接的节点
         node_id = None
         prev_node_output = None
@@ -82,7 +89,7 @@ def replace_lora_nodes(input_string, base_json):
 
         # 开始添加新的指定类型节点
         next_node_id_to_use = max(int(id) for id in base_json.keys()) + 1
-        for _, name, weight in lora_info:
+        for _, name, weight in valid_lora_info:
             if node_type == "LoraLoader" or node_type == "lora":
                 new_node = {
                     "class_type": "LoraLoader",
@@ -127,8 +134,9 @@ def replace_lora_nodes(input_string, base_json):
 
     return base_json
 
+
 # 示例输入字符串，包含多个不同类型的标签
-input_string = "<lora:lora1:0.7> <customnode:custom1:0.8> <lora:lora3:0.9>"
+input_string = "<lora:lora1:0.7> <customnode:custom1:0.8> <lora:lora3:0.9> <nonexistent:test:0.5>"
 
 # 示例的 ComfyUI 基础工作流 JSON 数据
 base_json = {
@@ -141,7 +149,7 @@ base_json = {
             "scheduler": "normal",
             "denoise": 1,
             "model": [
-                "4",
+                "10",
                 0
             ],
             "positive": [
@@ -186,7 +194,7 @@ base_json = {
         "inputs": {
             "text": "beautiful scenery nature glass bottle landscape, , purple galaxy bottle,",
             "clip": [
-                "4",
+                "10",
                 1
             ]
         },
@@ -199,7 +207,7 @@ base_json = {
         "inputs": {
             "text": "text, watermark",
             "clip": [
-                "4",
+                "10",
                 1
             ]
         },
@@ -235,6 +243,25 @@ base_json = {
         "class_type": "SaveImage",
         "_meta": {
             "title": "Save Image"
+        }
+    },
+    "10": {
+        "inputs": {
+            "lora_name": "chenbin-000005.safetensors",
+            "strength_model": 1,
+            "strength_clip": 1,
+            "model": [
+                "4",
+                0
+            ],
+            "clip": [
+                "4",
+                1
+            ]
+        },
+        "class_type": "LoraLoader",
+        "_meta": {
+            "title": "Load LoRA"
         }
     }
 }
