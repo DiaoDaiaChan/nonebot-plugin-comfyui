@@ -10,7 +10,7 @@ import aiofiles
 import aiohttp
 import asyncio
 import hashlib
-
+from .lora_utils import process_workflow
 import nonebot
 
 from tqdm import tqdm
@@ -682,6 +682,11 @@ class ComfyUI:
         api_json = copy.deepcopy(self.comfyui_api_json)
         raw_api_json = copy.deepcopy(self.comfyui_api_json)
 
+        if self.prompt is not None:
+            new_prompt = re.sub(r'<[^:]+:[^:]+:[^>]+>', '', self.prompt)
+        else:
+            new_prompt = self.prompt
+
         update_mapping = {
             "sampler": {
                 "seed": self.seed,
@@ -701,8 +706,8 @@ class ComfyUI:
                 "batch_size": self.batch_size
             },
             "prompt": {
-                "text": self.prompt,
-                "Text": self.prompt
+                "text": new_prompt,
+                "Text": new_prompt
             },
             "negative_prompt": {
                 "text": self.negative_prompt,
@@ -866,7 +871,12 @@ class ComfyUI:
                             for node, item_ in node_reflex.items():
                                 for k, v in item_.items():
                                     api_json[node]['inputs'][k] = v
-
+        
+        if self.prompt is not None:
+            api_json = await process_workflow(self.prompt, api_json, self.backend_url)
+        else:
+            logger.warning("self.prompt 为 None，未调用 process_workflow 函数")
+        
         await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
         return api_json
 
