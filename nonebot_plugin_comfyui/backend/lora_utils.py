@@ -1,63 +1,93 @@
+import aiohttp
 import re
 import json
 import asyncio
-import aiohttp
+from typing import Dict, Tuple, Optional, List
 
+async def process_workflow(input_string: str, base_json: dict, url: str) -> dict:
+    # 深拷贝 base_json
+    workflow = json.loads(json.dumps(base_json))
+    
+    # 正则表达式匹配 <class_type:name:value>
+    pattern = r"<([^:]+):([^:]+):([^>]+)>"
+    matches = re.findall(pattern, input_string)
+    
+    # 获取 base_json 中存在的 class_type
+    existing_class_types = {node["class_type"] for node in base_json.values()}
+    if "LoraLoader" in existing_class_types:
+        existing_class_types.add("lora")
+    
+    # 获取所有可用的 LoRA
+    available_loras = await get_available_loras(url)
+    
+    # 记录原有 LoraLoader 节点的位置
+    original_lora_positions = {node_id: node for node_id, node in base_json.items() if node["class_type"] == "LoraLoader"}
+    
+    # 默认删除所有 LoraLoader 节点并调整连接
+    workflow = remove_lora_nodes(workflow, base_json)
+    
+    # 处理 LoRA 的新节点
+    lora_matches = [m for m in matches if m[0].lower() in ["lora", "loraloader"]]
+    new_lora_nodes = []
+    
+    if lora_matches:
+        for i, (class_type, name, value) in enumerate(lora_matches):
+            lora_name = name if name in available_loras else None
+            if lora_name:
+                try:
+                    value = float(value)
+                except ValueError:
+                    value = 1.0
+                # 使用原有位置或创建新节点
+                if i < len(original_lora_positions):
+                    node_id = list(original_lora_positions.keys())[i]
+                    workflow[node_id] = {
+                        "class_type": "LoraLoader",
+                        "inputs": {
+                            "lora_name": f"{lora_name}.safetensors",
+                            "strength_model": value,
+                            "strength_clip": value,
+                            "model": [None, 0],
+                            "clip": [None, 1]
+                        },
+                        "_meta": {"title": "Load LoRA"}
+                    }
+                else:
+                    node_id = str(max([int(k) for k in workflow.keys()] + [0]) + 1)
+                    workflow[node_id] = {
+                        "class_type": "LoraLoader",
+                        "inputs": {
+                            "lora_name": f"{lora_name}.safetensors",
+                            "strength_model": value,
+                            "strength_clip": value,
+                            "model": [None, 0],
+                            "clip": [None, 1]
+                        },
+                        "_meta": {"title": "Load LoRA"}
+                    }
+                new_lora_nodes.append((workflow[node_id], node_id))
+    
+    # 插入并串联 LoRA 节点
+    if new_lora_nodes:
+        insert_lora_nodes(workflow, new_lora_nodes, base_json, original_lora_positions)
+    
+    # 处理其他类型节点
+    for class_type, name, value in matches:
+        normalized_class_type = "LoraLoader" if class_type.lower() == "lora" else class_type
+        if normalized_class_type not in existing_class_types or class_type.lower() in ["lora", "loraloader"]:
+            continue
+        try:
+            value = float(value)
+        except ValueError:
+            pass
+        node, node_id = find_or_create_node(workflow, class_type, base_json)
+        update_node_inputs(node, name, value)
+        if node_id not in base_json:
+            insert_node(workflow, node_id, class_type, base_json)
+    
+    return workflow
 
-async def replace_lora_nodes(input_string, base_json, url):
-    # 正则表达式用于匹配 <lora:name:weight> 或 <nodename:name:weight> 格式
-    lora_pattern = r'<([^:]+):([^:]+):([^>]+)>'
-    lora_matches = re.findall(lora_pattern, input_string)
-    lora_info = [(node_type, name, float(weight)) for node_type, name, weight in lora_matches]
-    input_node_types = set([node_type for node_type, _, _ in lora_info])
-    print("lora_matches:", lora_matches)
-    print("lora_info:", lora_info)
-    print("input_node_types:", input_node_types)
-
-    # 找出原 JSON 中所有节点类型
-    existing_node_types = set()
-    for id, node in base_json.items():
-        existing_node_types.add(node["class_type"])
-    print("existing_node_types:", existing_node_types)
-
-    # 只有当 base_json 中存在 LoraLoader 节点时，才处理输入字符串中没有但原 JSON 中有的节点
-    if "LoraLoader" in existing_node_types:
-        for node_type in existing_node_types - input_node_types:
-            node_id = None
-            prev_node_output = None
-            next_node_id = None
-            next_node_input_key = None
-
-            for id, node in base_json.items():
-                if node["class_type"] == node_type:
-                    node_id = id
-                    # 找到前一个节点的输出
-                    if "model" in node["inputs"]:
-                        prev_node_output = node["inputs"]["model"]
-                    # 查找连接到这个节点输出的下一个节点
-                    for next_id, next_node in base_json.items():
-                        for input_key, input_value in next_node["inputs"].items():
-                            if isinstance(input_value, list) and input_value[0] == node_id:
-                                next_node_id = next_id
-                                next_node_input_key = input_key
-                                break
-                        if next_node_id:
-                            break
-                    break
-
-            # 如果找到原有的节点，移除它并连接前后节点
-            if node_id and prev_node_output and next_node_id and next_node_input_key:
-                base_json[next_node_id]["inputs"][next_node_input_key] = prev_node_output
-                del base_json[node_id]
-                print(f"移除节点 {node_id} 并更新连接")
-
-    # 过滤掉在 base_json 中不存在的节点类型，这里修改为只要是 lora 类型就保留
-    valid_lora_info = []
-    for node_type, name, weight in lora_info:
-        if node_type == "lora" or node_type == "LoraLoader":
-            valid_lora_info.append((node_type, name, weight))
-    print("valid_lora_info:", valid_lora_info)
-
+async def get_available_loras(url: str) -> list:
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(f"{url}/object_info/LoraLoader") as response:
@@ -68,199 +98,130 @@ async def replace_lora_nodes(input_string, base_json, url):
                     for item in sublist:
                         if ".safetensors" in item:
                             available_loras.append(item.split('.')[0])
-            print("available_loras:", available_loras)
+                print("available_loras:", available_loras)
+                return available_loras
         except aiohttp.ClientError as e:
             print(f"请求错误: {e}")
-            available_loras = []
+            return []
 
-    if "LoraLoader" in existing_node_types:
-        # 移除原有的 LoraLoader 节点
-        lora_node_ids = []
-        for id, node in base_json.items():
-            if node["class_type"] == "LoraLoader":
-                lora_node_ids.append(id)
-        for id in lora_node_ids:
-            del base_json[id]
-            print(f"移除节点 {id}")
-
-        # 找到 CheckpointLoaderSimple 节点作为起始节点
-        start_node_output = None
-        for id, node in base_json.items():
-            if node["class_type"] == "CheckpointLoaderSimple":
-                start_node_output = [id, 0]
-                break
-
-        if not start_node_output:
-            raise ValueError("Could not find a CheckpointLoaderSimple node.")
-
-        prev_node_output = start_node_output
-        # 开始添加新的指定类型节点
-        next_node_id_to_use = max(int(id) for id in base_json.keys()) + 1
-        for _, name, weight in valid_lora_info:
-            if name in available_loras:
-                new_node = {
-                    "class_type": "LoraLoader",
-                    "inputs": {
-                        "model": prev_node_output,
-                        "lora_name": f"{name}.safetensors",
-                        "strength_model": weight,
-                        "strength_clip": weight
-                    },
-                    "_meta": {
-                        "title": "Lora Loader"
-                    }
-                }
-                print(f"准备添加新节点 {next_node_id_to_use}: {new_node}")
-                base_json[str(next_node_id_to_use)] = new_node
-                prev_node_output = [str(next_node_id_to_use), 0]
-                next_node_id_to_use += 1
-
-        # 更新 VAEDecode 节点的输入
-        for id, node in base_json.items():
-            if node["class_type"] == "VAEDecode":
-                node["inputs"]["samples"] = prev_node_output
-                print(f"将 VAEDecode 节点 {id} 的 samples 输入更新为 {prev_node_output}")
-                break
-
-    return base_json
-
-
-# 示例输入字符串，包含多个不同类型的标签
-input_string = "<lora:lora1:0.7> <customnode:custom1:0.8><lora:mordred-pdxl-nvwls-v1:0.4> <lora:lora3:0.9> <nonexistent:test:0.5> <lora:chenbin-000010:0.6><lora:chenbin-000015:0.6>"
-
-# 示例的 ComfyUI 基础工作流 JSON 数据
-base_json = {
-    "3": {
-        "inputs": {
-            "seed": 363272565452302,
-            "steps": 20,
-            "cfg": 8,
-            "sampler_name": "euler",
-            "scheduler": "normal",
-            "denoise": 1,
-            "model": [
-                "10",
-                0
-            ],
-            "positive": [
-                "6",
-                0
-            ],
-            "negative": [
-                "7",
-                0
-            ],
-            "latent_image": [
-                "5",
-                0
-            ]
-        },
-        "class_type": "KSampler",
-        "_meta": {
-            "title": "KSampler"
-        }
-    },
-    "4": {
-        "inputs": {
-            "ckpt_name": "NoobXL-EPS-v1.1.safetensors"
-        },
-        "class_type": "CheckpointLoaderSimple",
-        "_meta": {
-            "title": "Load Checkpoint"
-        }
-    },
-    "5": {
-        "inputs": {
-            "width": 1024,
-            "height": 1024,
-            "batch_size": 1
-        },
-        "class_type": "EmptyLatentImage",
-        "_meta": {
-            "title": "Empty Latent Image"
-        }
-    },
-    "6": {
-        "inputs": {
-            "text": "beautiful scenery nature glass bottle landscape, , purple galaxy bottle,",
-            "clip": [
-                "4",
-                0
-            ]
-        },
-        "class_type": "CLIPTextEncode",
-        "_meta": {
-            "title": "CLIP Text Encode (Prompt)"
-        }
-    },
-    "7": {
-        "inputs": {
-            "text": "text, watermark",
-            "clip": [
-                "10",
-                1
-            ]
-        },
-        "class_type": "CLIPTextEncode",
-        "_meta": {
-            "title": "CLIP Text Encode (Prompt)"
-        }
-    },
-    "8": {
-        "inputs": {
-            "samples": [
-                "3",
-                0
-            ],
-            "vae": [
-                "4",
-                2
-            ]
-        },
-        "class_type": "VAEDecode",
-        "_meta": {
-            "title": "VAE Decode"
-        }
-    },
-    "9": {
-        "inputs": {
-            "filename_prefix": "nb_comfyui/txt2img/txt2img",
-            "images": [
-                "8",
-                0
-            ]
-        },
-        "class_type": "SaveImage",
-        "_meta": {
-            "title": "Save Image"
-        }
-    },
-    "10": {
-        "inputs": {
-            "lora_name": "chenbin-000005.safetensors",
-            "strength_model": 1,
-            "strength_clip": 1,
-            "model": [
-                "4",
-                0
-            ],
-            "clip": [
-                "4",
-                1
-            ]
-        },
-        "class_type": "LoraLoader",
-        "_meta": {
-            "title": "Load LoRA"
-        }
+def find_or_create_node(workflow: dict, class_type: str, base_json: dict) -> Tuple[dict, str]:
+    for node_id, node in base_json.items():
+        if node.get("class_type") == class_type:
+            return workflow[node_id], node_id
+    new_node_id = str(max([int(k) for k in workflow.keys()] + [0]) + 1)
+    workflow[new_node_id] = {
+        "class_type": class_type,
+        "inputs": {},
+        "_meta": {"title": class_type}
     }
-}
+    return workflow[new_node_id], new_node_id
 
-# 假设的 url
-url = "http://example.com"
+def update_node_inputs(node: dict, name: str, value: any):
+    class_type = node["class_type"]
+    
+    if class_type == "CLIPTextEncode":
+        node["inputs"]["text"] = name
+    
+    elif class_type == "KSampler":
+        if name in ["seed", "steps", "cfg", "denoise"]:
+            node["inputs"][name] = value if isinstance(value, (int, float)) else int(value)
+    
+    elif class_type == "CheckpointLoaderSimple":
+        node["inputs"]["ckpt_name"] = f"{name}.safetensors"
+    
+    elif class_type == "EmptyLatentImage":
+        if name in ["width", "height", "batch_size"]:
+            node["inputs"][name] = int(value)
+    
+    elif class_type == "VAEDecode":
+        pass
+    
+    elif class_type == "SaveImage":
+        node["inputs"]["filename_prefix"] = name
 
-# 调用函数替换节点
-updated_json = asyncio.run(replace_lora_nodes(input_string, base_json, url))
+def remove_lora_nodes(workflow: dict, base_json: dict) -> dict:
+    lora_nodes = {node_id: node for node_id, node in base_json.items() if node["class_type"] == "LoraLoader"}
+    
+    for lora_id in lora_nodes:
+        upstream_model = lora_nodes[lora_id]["inputs"].get("model", [None, 0])
+        upstream_clip = lora_nodes[lora_id]["inputs"].get("clip", [None, 1])
+        
+        for node_id, node in workflow.items():
+            for input_key, connection in node["inputs"].items():
+                if isinstance(connection, list) and connection[0] == lora_id:
+                    if input_key == "model":
+                        node["inputs"][input_key] = upstream_model
+                    elif input_key == "clip":
+                        node["inputs"][input_key] = upstream_clip
+        
+        workflow.pop(lora_id)
+    
+    return workflow
 
-# 打印更新后的工作流 JSON 数据
-print(json.dumps(updated_json, indent=4))
+def insert_lora_nodes(workflow: dict, new_lora_nodes: List[Tuple[dict, str]], base_json: dict, original_lora_positions: dict):
+    # 串联 LoRA 节点
+    if len(new_lora_nodes) > 1:
+        for i in range(len(new_lora_nodes) - 1):
+            _, current_id = new_lora_nodes[i]
+            next_node, next_id = new_lora_nodes[i + 1]
+            next_node["inputs"]["model"] = [current_id, 0]
+            next_node["inputs"]["clip"] = [current_id, 1]
+    
+    # 第一个 LoRA 连接到原有上游
+    first_node, first_id = new_lora_nodes[0]
+    for orig_id in original_lora_positions:
+        first_node["inputs"]["model"] = original_lora_positions[orig_id]["inputs"].get("model", [None, 0])
+        first_node["inputs"]["clip"] = original_lora_positions[orig_id]["inputs"].get("clip", [None, 1])
+        break
+    
+    # 最后一个 LoRA 连接到原有下游
+    last_node, last_id = new_lora_nodes[-1]
+    for orig_id in original_lora_positions:
+        for node_id, node in base_json.items():
+            for input_key, connection in node["inputs"].items():
+                if isinstance(connection, list) and connection[0] == orig_id:
+                    if node_id in workflow and input_key in workflow[node_id]["inputs"]:
+                        workflow[node_id]["inputs"][input_key] = [last_id, connection[1]]
+
+def insert_node(workflow: dict, node_id: str, class_type: str, base_json: dict):
+    source_connections = {}
+    target_connections = []
+    
+    for orig_id, orig_node in base_json.items():
+        if orig_node["class_type"] == class_type:
+            for input_key, connection in orig_node["inputs"].items():
+                if isinstance(connection, list) and connection[0] in base_json:
+                    source_connections[input_key] = (connection[0], connection[1])
+        for input_key, connection in orig_node["inputs"].items():
+            if isinstance(connection, list) and connection[0] in base_json and base_json[connection[0]]["class_type"] == class_type:
+                target_connections.append((orig_id, input_key, connection[1]))
+    
+    for input_key, (source_id, output_idx) in source_connections.items():
+        if input_key not in workflow[node_id]["inputs"]:
+            workflow[node_id]["inputs"][input_key] = [source_id, output_idx]
+    
+    for target_id, input_key, output_idx in target_connections:
+        if target_id in workflow and input_key in workflow[target_id]["inputs"]:
+            workflow[target_id]["inputs"][input_key] = [node_id, output_idx]
+
+# 测试代码
+async def main():
+    base_json = {
+        "3": {"inputs": {"seed": 363272565452302, "steps": 20, "cfg": 8, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}, "class_type": "KSampler", "_meta": {"title": "KSampler"}},
+        "4": {"inputs": {"ckpt_name": "NoobXL-EPS-v1.1.safetensors"}, "class_type": "CheckpointLoaderSimple", "_meta": {"title": "Load Checkpoint"}},
+        "5": {"inputs": {"width": 1024, "height": 1024, "batch_size": 1}, "class_type": "EmptyLatentImage", "_meta": {"title": "Empty Latent Image"}},
+        "6": {"inputs": {"text": "beautiful scenery", "clip": ["10", 1]}, "class_type": "CLIPTextEncode", "_meta": {"title": "CLIP Text Encode (Prompt)"}},
+        "7": {"inputs": {"text": "text, watermark", "clip": ["10", 1]}, "class_type": "CLIPTextEncode", "_meta": {"title": "CLIP Text Encode (Prompt)"}},
+        "8": {"inputs": {"samples": ["3", 0], "vae": ["4", 2]}, "class_type": "VAEDecode", "_meta": {"title": "VAE Decode"}},
+        "9": {"inputs": {"filename_prefix": "nb_comfyui/txt2img/txt2img", "images": ["8", 0]}, "class_type": "SaveImage", "_meta": {"title": "Save Image"}},
+        "10": {"inputs": {"lora_name": "chenbin-000005.safetensors", "strength_model": 1, "strength_clip": 1, "model": ["4", 0], "clip": ["4", 1]}, "class_type": "LoraLoader", "_meta": {"title": "Load LoRA"}}
+    }
+    
+    input_string = "New prompt <lora:nikki:0.8> <lora:invalid_lora:0.6> <lora:chenbin-000005:0.7> <CLIPTextEncode:amazing landscape:1.0> <KSampler:seed:12345>"
+    url = "http://server2.20020026.xyz:58288"
+    
+    result = await process_workflow(input_string, base_json, url)
+    print(json.dumps(result, indent=2))
+
+if __name__ == "__main__":
+    asyncio.run(main())
