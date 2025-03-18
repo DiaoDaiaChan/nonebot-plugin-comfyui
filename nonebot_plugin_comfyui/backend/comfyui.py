@@ -867,7 +867,7 @@ class ComfyUI:
                                 for k, v in item_.items():
                                     api_json[node]['inputs'][k] = v
         
-        if isinstance(self.prompt, str) and re.search(r'<lora:[^:]+:[^>]+>', self.prompt):
+        if isinstance(self.prompt, str) and re.search(r'<([^:]+):([^:]+):([^>]+)>', self.prompt):
             api_json = replace_lora_nodes(self.prompt, api_json)
         
         await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
