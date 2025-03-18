@@ -682,6 +682,11 @@ class ComfyUI:
         api_json = copy.deepcopy(self.comfyui_api_json)
         raw_api_json = copy.deepcopy(self.comfyui_api_json)
 
+        if self.prompt is not None:
+            new_prompt = re.sub(r'<[^:]+:[^:]+:[^>]+>', '', self.prompt)
+        else:
+            new_prompt = self.prompt
+
         update_mapping = {
             "sampler": {
                 "seed": self.seed,
@@ -701,8 +706,8 @@ class ComfyUI:
                 "batch_size": self.batch_size
             },
             "prompt": {
-                "text": self.prompt,
-                "Text": self.prompt
+                "text": new_prompt,
+                "Text": new_prompt
             },
             "negative_prompt": {
                 "text": self.negative_prompt,
@@ -868,7 +873,7 @@ class ComfyUI:
                                     api_json[node]['inputs'][k] = v
         
         if self.prompt is not None:
-            api_json = replace_lora_nodes(self.prompt, api_json, self.backend_url)
+            api_json = await replace_lora_nodes(self.prompt, api_json, self.backend_url)
         else:
             logger.warning("self.prompt 为 None，未调用 replace_lora_nodes 函数")
         
