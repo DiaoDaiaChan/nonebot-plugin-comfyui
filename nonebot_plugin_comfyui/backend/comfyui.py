@@ -867,8 +867,10 @@ class ComfyUI:
                                 for k, v in item_.items():
                                     api_json[node]['inputs'][k] = v
         
-        if isinstance(self.prompt, str):
-            api_json = replace_lora_nodes(self.prompt, api_json)
+        if self.prompt is not None:
+            api_json = replace_lora_nodes(self.prompt, api_json, self.backend_url)
+        else:
+            logger.warning("self.prompt 为 None，未调用 replace_lora_nodes 函数")
         
         await run_later(self.compare_dicts(api_json, self.comfyui_api_json), 0.5)
         return api_json
