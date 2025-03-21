@@ -123,8 +123,15 @@ comfyui_random_wf: false
 comfyui_random_wf_list:
   - "txt2img"
 
-# 发现色图的时候使用图片的链接二维码代替, 不支持lgr!
+# 已经废弃, 请使用下面的
 comfyui_qr_mode: false
+
+# 在群聊中发现的r18的处理办法, 1: 私聊发送, 2: 转换为二维码发送在群里, 3: 发送图片链接在群聊, 4: 不发送图片
+# 只有llonebot经过测试
+comfyui_r18_action: 1
+
+# 正常情况下图片发送模式, 1: 正常发送, 2: 二维码, 3: 图片url
+comfyui_img_send: 1
 
 # 超级用户, 不受时间限制
 comfyui_superusers:
@@ -172,6 +179,9 @@ comfyui_default_value:
   override: false
   override_ng: false
   forward: false  # 默认消息转发
+  concurrency: false  # 并发请求
+  pure: false  # 不返回队列, 后端等等额外信息
+  notice: false  # 任务完成的时候私聊发送提醒
   preset_prompt: ""  # 内置提示词
   preset_negative_prompt: ""  # 内置负面提示词
 

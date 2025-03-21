@@ -100,7 +100,8 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 
 ## 更新日志
 ### 2025.03.18 0.8.2
-- 新的配置项, 见配置文件 comfyui_random_params (随机参数, 添加趣味性), comfyui_random_params_enable
+- 废弃配置项目 comfyui_qr_mode, 替代项目 comfyui_r18_action
+- 新的配置项, 见配置文件 comfyui_random_params (随机参数, 添加趣味性), comfyui_random_params_enable, comfyui_img_send
 - comfyui_default_value(默认值)
 ```yaml
 # 默认值
@@ -120,6 +121,8 @@ comfyui_default_value:
   override: false
   override_ng: false
   forward: false  # 默认消息转发
+  concurrency: false  # 并发请求
+  pure: false  # 不返回其他额外的信息
   preset_prompt: ""  # 内置提示词
   preset_negative_prompt: ""  # 内置负面提示词
 ```

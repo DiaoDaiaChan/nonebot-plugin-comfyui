@@ -335,7 +335,7 @@ async def today_girl_handler(
 
 async def danbooru_handler(bot: Bot, event: Event, tag: str, limit):
 
-    comfyui_instance = ComfyUI(nb_event=event, bot=bot, forward=True)
+    comfyui_instance = ComfyUI(nb_event=event, bot=bot, forward=True, pure=True, send_msg_private=False)
     comfyui_instance.resp_msg_list = await danbooru(tag, limit)
 
     await comfyui_instance.send_all_msg()

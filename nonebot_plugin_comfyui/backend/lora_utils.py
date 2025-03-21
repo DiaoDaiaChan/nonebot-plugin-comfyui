@@ -203,25 +203,25 @@ def insert_node(workflow: dict, node_id: str, class_type: str, base_json: dict):
     for target_id, input_key, output_idx in target_connections:
         if target_id in workflow and input_key in workflow[target_id]["inputs"]:
             workflow[target_id]["inputs"][input_key] = [node_id, output_idx]
-
-# 测试代码
-async def main():
-    base_json = {
-        "3": {"inputs": {"seed": 363272565452302, "steps": 20, "cfg": 8, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}, "class_type": "KSampler", "_meta": {"title": "KSampler"}},
-        "4": {"inputs": {"ckpt_name": "NoobXL-EPS-v1.1.safetensors"}, "class_type": "CheckpointLoaderSimple", "_meta": {"title": "Load Checkpoint"}},
-        "5": {"inputs": {"width": 1024, "height": 1024, "batch_size": 1}, "class_type": "EmptyLatentImage", "_meta": {"title": "Empty Latent Image"}},
-        "6": {"inputs": {"text": "beautiful scenery", "clip": ["10", 1]}, "class_type": "CLIPTextEncode", "_meta": {"title": "CLIP Text Encode (Prompt)"}},
-        "7": {"inputs": {"text": "text, watermark", "clip": ["10", 1]}, "class_type": "CLIPTextEncode", "_meta": {"title": "CLIP Text Encode (Prompt)"}},
-        "8": {"inputs": {"samples": ["3", 0], "vae": ["4", 2]}, "class_type": "VAEDecode", "_meta": {"title": "VAE Decode"}},
-        "9": {"inputs": {"filename_prefix": "nb_comfyui/txt2img/txt2img", "images": ["8", 0]}, "class_type": "SaveImage", "_meta": {"title": "Save Image"}},
-        "10": {"inputs": {"lora_name": "chenbin-000005.safetensors", "strength_model": 1, "strength_clip": 1, "model": ["4", 0], "clip": ["4", 1]}, "class_type": "LoraLoader", "_meta": {"title": "Load LoRA"}}
-    }
-    
-    input_string = "New prompt <lora:nikki:0.8> <lora:invalid_lora:0.6> <lora:chenbin-000005:0.7> <CLIPTextEncode:amazing landscape:1.0> <KSampler:seed:12345>"
-    url = "http://server2.20020026.xyz:58288"
-    
-    result = await process_workflow(input_string, base_json, url)
-    print(json.dumps(result, indent=2))
-
-if __name__ == "__main__":
-    asyncio.run(main())
+#
+# # 测试代码
+# async def main():
+#     base_json = {
+#         "3": {"inputs": {"seed": 363272565452302, "steps": 20, "cfg": 8, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["10", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}, "class_type": "KSampler", "_meta": {"title": "KSampler"}},
+#         "4": {"inputs": {"ckpt_name": "NoobXL-EPS-v1.1.safetensors"}, "class_type": "CheckpointLoaderSimple", "_meta": {"title": "Load Checkpoint"}},
+#         "5": {"inputs": {"width": 1024, "height": 1024, "batch_size": 1}, "class_type": "EmptyLatentImage", "_meta": {"title": "Empty Latent Image"}},
+#         "6": {"inputs": {"text": "beautiful scenery", "clip": ["10", 1]}, "class_type": "CLIPTextEncode", "_meta": {"title": "CLIP Text Encode (Prompt)"}},
+#         "7": {"inputs": {"text": "text, watermark", "clip": ["10", 1]}, "class_type": "CLIPTextEncode", "_meta": {"title": "CLIP Text Encode (Prompt)"}},
+#         "8": {"inputs": {"samples": ["3", 0], "vae": ["4", 2]}, "class_type": "VAEDecode", "_meta": {"title": "VAE Decode"}},
+#         "9": {"inputs": {"filename_prefix": "nb_comfyui/txt2img/txt2img", "images": ["8", 0]}, "class_type": "SaveImage", "_meta": {"title": "Save Image"}},
+#         "10": {"inputs": {"lora_name": "chenbin-000005.safetensors", "strength_model": 1, "strength_clip": 1, "model": ["4", 0], "clip": ["4", 1]}, "class_type": "LoraLoader", "_meta": {"title": "Load LoRA"}}
+#     }
+#
+#     input_string = "New prompt <lora:nikki:0.8> <lora:invalid_lora:0.6> <lora:chenbin-000005:0.7> <CLIPTextEncode:amazing landscape:1.0> <KSampler:seed:12345>"
+#     url = "http://server2.20020026.xyz:58288"
+#
+#     result = await process_workflow(input_string, base_json, url)
+#     print(json.dumps(result, indent=2))
+#
+# if __name__ == "__main__":
+#     asyncio.run(main())

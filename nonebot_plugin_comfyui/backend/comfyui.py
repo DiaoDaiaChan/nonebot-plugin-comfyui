@@ -120,6 +120,9 @@ class DefaultValue:
     override: bool = False
     override_ng: bool = False
     forward: bool = False
+    concurrency: bool = False
+    pure: bool = False
+    notice: bool = False
 
     preset_prompt: str = ''
     preset_negative_prompt: str = ''
@@ -335,6 +338,8 @@ class ComfyUI:
             silent: Optional[bool] = False,
             notice: Optional[bool] = False,
             no_trans: Optional[bool] = False,
+            pure: Optional[bool] = False,
+            send_msg_private: Optional[bool] = True,
             **kwargs
     ):
         default_value = DefaultValue().get_default_value_instance()
@@ -431,10 +436,12 @@ class ComfyUI:
         self.backend_index: int = 0
         self.backend_task: dict = {}
         self.available_backends: set[int] = set({})
-        self.concurrency = concurrency
+        self.concurrency = concurrency or default_value.concurrency
         self.silent = silent or config.comfyui_silent
-        self.notice = notice
+        self.notice = notice or default_value.notice
         self.no_trans = no_trans
+        self.pure = pure or default_value.pure
+        self.send_msg_private = send_msg_private
 
         # 用户相关
         self.client_id = None
@@ -534,10 +541,25 @@ class ComfyUI:
 
     async def send_all_msg(self):
 
+        audit_mode = ''
+        if config.comfyui_audit is False:
+            audit_mode = '关闭'
+        elif config.comfyui_audit_level == 1:
+            audit_mode = '宽松'
+        elif config.comfyui_audit_level == 2:
+            audit_mode = '严格'
+        elif config.comfyui_audit_level == 3:
+            audit_mode = '非常严格'
+        elif config.comfyui_audit_level == 100:
+            audit_mode = '全部拦截'
+
         msg_list = []
 
         for resp in self.resp_msg_list:
-            msg_ = f"任务id: {resp.task_id}, 后端索引: {resp.backend_index}\n" + resp.error_msg + resp.resp_img + resp.resp_text
+            if self.pure:
+                msg_ = resp.error_msg + resp.resp_img + resp.resp_text
+            else:
+                msg_ = f"任务id: {resp.task_id}\n审核模式: {audit_mode}\n后端索引: {resp.backend_index}\n" + resp.error_msg + resp.resp_img + resp.resp_text
             self.unimessage += msg_
             msg_list.append(msg_)
 
@@ -1405,16 +1427,29 @@ class ComfyUI:
 
     @staticmethod
     async def compare_dicts(dict1, dict2):
-
         modified_keys = {k for k in dict1.keys() & dict2.keys() if dict1[k] != dict2[k]}
-        build_info = "节点映射情况: \n"
-        for key in modified_keys:
-            build_info += f"节点ID: {key} -> \n"
-            for (key1, value1), (key2, value2) in zip(dict1[key].items(), dict2[key].items()):
-                if value1 == value2:
-                    pass
-                else:
-                    build_info += f"新的值: {key1} -> {value1}\n旧的值: {key2} -> {value2}\n"
+
+        if not modified_keys:
+            logger.info("节点映射情况: (无变化)")
+            return
+
+        build_info = "节点映射情况:\n"
+        for node_id in sorted(modified_keys):
+            build_info += f"节点ID: {node_id}\n"
+            new_data = dict1[node_id].get('inputs', {})
+            old_data = dict2[node_id].get('inputs', {})
+
+            if new_data != old_data:
+                for key in sorted(new_data.keys() | old_data.keys()):
+                    new_value = new_data.get(key)
+                    old_value = old_data.get(key)
+
+                    if new_value != old_value:
+                        build_info += f"{key}:\n"
+                        build_info += f"值变动: {new_value} -> {old_value}\n"
+                        build_info += "\n"
+            else:
+                build_info += "(仅节点ID发生变化，inputs 无变化)\n"
 
         logger.info(build_info)
 
@@ -1436,6 +1471,9 @@ class ComfyUI:
 
     async def send_msg_to_private(self, msg, is_image=True):
 
+        if self.send_msg_private is False:
+            return
+
         from nonebot.exception import ActionFailed
 
         try:
@@ -1448,6 +1486,7 @@ class ComfyUI:
                 raise NotImplementedError("暂不支持其他机器人")
 
         except (NotImplementedError, ActionFailed, Exception) as e:
+            traceback.print_exc()
             if isinstance(e, NotImplementedError):
                 logger.warning("发送失败, 暂不支持其他机器人")
             elif isinstance(e, ActionFailed):
@@ -1488,13 +1527,29 @@ class ComfyUI:
                     audit_results = await asyncio.gather(*audit_tasks)
                     for resp_, is_nsfw, file_bytes in audit_results:
                         if is_nsfw:
-                            if config.comfyui_qr_mode:
-                                resp_.resp_img += UniMessage.image(raw=await get_qr(file_bytes, self.bot))
-                            else:
-                                resp_.resp_img += "\n这张图太涩了,私聊发给你了哦!"
+                            if config.comfyui_r18_action == 1:
+                                resp_.resp_img += "\n这张图太涩了,私聊发给你了哦!" if self.send_msg_private else "\n这张图太涩了"
                                 await self.send_msg_to_private(file_bytes)
+                            elif config.comfyui_r18_action == 2:
+                                qr_img, _ = await get_qr(file_bytes, self.bot)
+                                qr_img = UniMessage.image(raw=qr_img)
+                                resp_.resp_img += qr_img
+                            elif config.comfyui_r18_action == 3:
+                                _, img_url = await get_qr(file_bytes, self.bot)
+                                resp_.resp_img += f"\n这张图太涩了, 这是图片url: {img_url}"
+                            elif config.comfyui_r18_action == 4:
+                                resp_.resp_img += "\n这张图太涩了, 不给你看"
+
                         else:
-                            resp_.resp_img += UniMessage.image(raw=file_bytes)
+                            if config.comfyui_img_send == 1:
+                                resp_.resp_img += UniMessage.image(raw=file_bytes)
+                            elif config.comfyui_img_send == 2:
+                                qr_img, _ = await get_qr(file_bytes, self.bot)
+                                qr_img = UniMessage.image(raw=qr_img)
+                                resp_.resp_img += qr_img
+                            elif config.comfyui_img_send == 3:
+                                _, img_url = await get_qr(file_bytes, self.bot)
+                                resp_.resp_img += f"\n这是图片url: {img_url}"
 
                 for resp_, file_type, file_bytes in other_media:
                     if file_type == "image":

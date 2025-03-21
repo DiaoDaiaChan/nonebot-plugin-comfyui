@@ -684,10 +684,25 @@ async def translate_api(tags, to):
 
 
 async def get_qr(msg, bot):
-    message_data = await bot.send_private_msg(
-        user_id=bot.self_id, 
-        message=await UniMessage.image(raw=msg).export()
-    )
+    retry_count = 0
+    max_retries = 4
+
+    while retry_count < max_retries:
+        try:
+            message_data = await bot.send_private_msg(
+                user_id=bot.self_id,
+                message=await UniMessage.image(raw=msg).export()
+            )
+        except:
+            retry_count += 1
+            logger.warning(f'私聊图片发送给自身失败 (第 {retry_count} 次重试), 重试中')
+            await asyncio.sleep(1)
+        else:
+            break
+
+    if retry_count >= max_retries:
+        raise ComfyuiExceptions.SendImageToBotException
+
     message_id = message_data["message_id"]
     message_all = await bot.get_msg(message_id=message_id)
     url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
@@ -703,7 +718,7 @@ async def get_qr(msg, bot):
         
     os.remove(file_name)
         
-    return bytes_img
+    return bytes_img, img_url
 
 
 async def is_port_open(host: str, port: int, timeout=config.comfyui_timeout) -> bool:
@@ -759,11 +774,11 @@ async def get_ava_backends():
 def weighted_choice(choices):
     total = sum(w for c, w in choices)
     r = random.uniform(0, total)
-    upto = 0
+    cumulative_weight = 0
     for c, w in choices:
-        if upto + w > r:
+        cumulative_weight += w
+        if r < cumulative_weight:
             return c
-        upto += w
 
 
 async def get_all_loras(backend_url):

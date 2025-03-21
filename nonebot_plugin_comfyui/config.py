@@ -97,10 +97,15 @@ If the user doesn't provide detailed descriptions, I will fill in the details wh
         "override": False,
         "override_ng": False,
         "forward": False,
+        "concurrency": False,
+        "pure": False,
+        "notice": False,
         "preset_prompt": "",
         "preset_negative_prompt": ""
     }
     comfyui_auto_lora: bool = False
+    comfyui_r18_action: int = 1
+    comfyui_img_send: int = 1
 
 
 def copy_config(source_template, destination_file):

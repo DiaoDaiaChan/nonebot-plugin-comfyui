@@ -73,3 +73,7 @@ class ComfyuiExceptions(BaseException):
     class ReachWorkFlowExecLimitations(Exception):
         def __init__(self, message="超过此工作流调用次数限制, 今天无法再次使用此工作流"):
             super().__init__(message)
+
+    class SendImageToBotException(Exception):
+        def __init__(self, message="机器人给自身发送图片获取图片url时失败"):
+            super().__init__(message)
