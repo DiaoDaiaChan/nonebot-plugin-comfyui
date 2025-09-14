@@ -11,50 +11,25 @@
 ![emb](../image/setting2.png)  
 ![emb](../image/setting3.png)  
 ***
+# 接下来是重点, 本插件的核心, Reflex
 ## 创建一个json文件, 名称和工作流名称一致, 并且加上_reflex, 把它们一起放在./data/comfyui(你设置的工作流路径内)
 比如说你有一个工作流叫做my_txt2img.json 
+![emb](../image/setting1.png) 
 你需要创建一个my_txt2img_reflex.json文件, 内容如下
-## 不清楚如何编写reflex的话, 机器人第一次启动创建一些默认工作流(默认路径: 机器人目录/data/comfyui), 请你结合以下文档以及默认工作流来学习
-### 键为: 请看表 覆写节点名称 , 值为comfyui导出的json文件中对应的节点ID
-### ⚠️⚠️⚠️!注意看图! 关键是output, 连接到了SaveImage节点, 这个是必须的️⚠️⚠️
-
-![emb](../image/node.png)
-### ️⚠️⚠️其他的节点都可以不覆写, 但是你就无法通过参数来控制工作流内的参数 ️⚠️⚠️️⚠️
-![emb](../image/setting5.png)
-```
+```json
 {
-"prompt": 32,
-"output": 94,  # 必须要!
-"load_image": 3,
-"negative_prompt": 7
-}
-----第二个例子-----
-{
-"tipo": 50,
-"sampler": 52,  # sampler节点
-"seed": 52  # 只替换sampler节点中的seed参数
-"image_size": 53,
-"output": 72,
+  "sampler": 3,
+  "image_size": 5,
+  "output": 9,
+  "prompt": 6,
+  "negative_prompt": 7,
+  "command": "绘画",
+  "note": "基础sdxl文生图工作流"
   }
 ```
-### 接下来为高级节点控制, 请观察以下
-### 覆写的意思是, prompt -t 30 , 这里的步数30步, 覆写到comfyui的API json中, 因为api json中的值是固定的
-```
-{
-# 覆写多个节点
-"prompt": [114, 514]  # 为节点114, 和 514 添加覆写
-"override": {"sampler": "ddim", "steps": 30}  # 选择到此工作流的时候使用的自定义参数, 例如我想要此工作流默认使用30步绘图, 使用采样器ddim,但是不想修改工作流文件
-"note": "文生图工作流"  # 仅用作备注
-}
-```
-### 高级节点控制 / 可以同时覆写多个节点
-### 格式为: 节点ID: {"override": {"comfyui api json 中的键": "操作(请看下面的表-节点高级操作)"}} ↓请看图
-![emb](../image/advance_node_control.png)  
-```
-"prompt": {"50": {"override": {"text": "append_prompt"}}, "52": {"override": {"text": "append_prompt"}}}  # 覆写节点id为52的节点, 键为text, 操作为把api json文件中的text的值加到正面提示词中
-```
+## 不清楚如何编写reflex的话, 机器人第一次启动创建一些默认工作流(默认路径: 机器人目录/data/comfyui), 请你结合以下文档以及默认工作流来学习
+### 键为: 请看表 覆写节点名称 , 值为comfyui导出的json文件中对应的节点ID
 ****
-目前支持映射的节点如下 (有能力的小伙伴可以在./nonebot_plugin_comfyui/backend/comfyui.py第120行左右中添加更多节点)
 ### 覆写节点名称
 
 |     覆写节点名称      | 是否必须填写 |                                                                          详细参数/会覆写掉的参数                                                                           |                                                        说明                                                        |权限|
@@ -92,6 +67,44 @@
 |          image          |   是    |             image_0             |      适用于需要加载多个图片的工作流      |all|
 ****
 ## 还请你阅读仓库内的comfyui_work_flows来学习基本使用
+
+### ⚠️⚠️⚠️!注意看图! 关键是output, 连接到了SaveImage节点, 这个是必须的️⚠️⚠️
+
+![emb](../image/node.png)
+### ️⚠️⚠️其他的节点都可以不覆写, 但是你就无法通过参数来控制工作流内的参数 ️⚠️⚠️️⚠️
+![emb](../image/setting5.png)
+```
+{
+"prompt": 32,
+"output": 94,  # 必须要!
+"load_image": 3,
+"negative_prompt": 7
+}
+----第二个例子-----
+{
+"tipo": 50,
+"sampler": 52,  # sampler节点
+"seed": 52  # 只替换sampler节点中的seed参数
+"image_size": 53,
+"output": 72,
+  }
+```
+### 接下来为高级节点控制, 请观察以下
+### 覆写的意思是, prompt -t 30 , 这里的步数30步, 覆写到comfyui的API json中, 因为api json中的值是固定的
+```
+{
+# 覆写多个节点
+"prompt": [114, 514]  # 为节点114, 和 514 添加覆写
+"override": {"sampler": "ddim", "steps": 30}  # 选择到此工作流的时候使用的自定义参数, 例如我想要此工作流默认使用30步绘图, 使用采样器ddim,但是不想修改工作流文件
+"note": "文生图工作流"  # 仅用作备注
+}
+```
+### 高级节点控制 / 可以同时覆写多个节点
+### 格式为: 节点ID: {"override": {"comfyui api json 中的键": "操作(请看下面的表-节点高级操作)"}} ↓请看图
+![emb](../image/advance_node_control.png)  
+```
+"prompt": {"50": {"override": {"text": "append_prompt"}}, "52": {"override": {"text": "append_prompt"}}}  # 覆写节点id为52的节点, 键为text, 操作为把api json文件中的text的值加到正面提示词中
+```
 
 # 以下是详细讲解
 ## [节点覆写](#节点覆写)

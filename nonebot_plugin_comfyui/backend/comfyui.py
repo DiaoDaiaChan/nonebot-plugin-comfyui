@@ -90,7 +90,7 @@ reflex_dict = {
         "UniPC": "uni_pc",
         "LCM": "lcm",
         "DDPM": "ddpm",
-        },
+    },
     'scheduler': {
         "Automatic": "normal",
         "Karras": "karras",
@@ -158,12 +158,12 @@ DefaultValue.set_default_value(config.comfyui_default_value)
 
 
 class RespMsg:
-    
+
     def __init__(self, task_id: str = "", backend_url: str = ""):
         self.task_id = task_id
         self.backend_url: str = backend_url
         self.backend_index: int = BACKEND_URL_LIST.index(backend_url) if backend_url in BACKEND_URL_LIST else -1
-        
+
         self.error_msg: str = ''
         self.resp_text: str = ''
 
@@ -176,7 +176,6 @@ class RespMsg:
 
 
 class ComfyuiHistory:
-
     all_task_id: set = {}
     all_task_dict: dict = {}
     user_task: dict = {}
@@ -238,7 +237,6 @@ class ComfyuiHistory:
 
 
 class ComfyuiTaskQueue:
-
     all_task_id = set()
     all_task_dict = {}
     user_task = {}
@@ -253,14 +251,14 @@ class ComfyuiTaskQueue:
 
     @classmethod
     async def set_user_task(
-        cls,
-        user_id: str,
-        task_id: str,
-        backend_index: int,
-        work_flow: str,
-        status: str = "pending"
+            cls,
+            user_id: str,
+            task_id: str,
+            backend_index: int,
+            work_flow: str,
+            status: str = "pending"
     ) -> None:
-        
+
         if user_id not in cls.user_task:
             cls.user_task[user_id] = {}
 
@@ -274,7 +272,7 @@ class ComfyuiTaskQueue:
 
     @classmethod
     async def get_task(cls, task_id: Optional[str] = None):
-     
+
         if task_id is None:
             return {}
 
@@ -301,7 +299,6 @@ class ComfyUIQueue:
 
 class ComfyUI:
     work_flows_init: list = get_and_filter_work_flows()
-    # {backend_url: task_id}
     current_task: dict = {}
 
     @classmethod
@@ -378,9 +375,20 @@ class ComfyUI:
         self.bot = bot
 
         # 绘图参数相关
-        self.prompt: str = [default_value.preset_prompt] +prompt if default_value.preset_prompt else prompt
-        self.negative_prompt: str = [default_value.preset_negative_prompt] + negative_prompt if default_value.preset_negative_prompt else negative_prompt
-        
+        self.override = override or default_value.override
+        self.override_ng = override_ng or default_value.override_ng
+
+        self.prompt: str = (
+            [default_value.preset_prompt] + prompt
+            if default_value.preset_prompt and not self.override
+            else prompt
+        )
+        self.negative_prompt: str = (
+            [default_value.preset_negative_prompt] + negative_prompt
+            if default_value.preset_negative_prompt and not self.override_ng
+            else negative_prompt
+        )
+
         self.accept_ratio: str = accept_ratio or default_value.shape
         if self.accept_ratio is None:
             self.height: int = height or default_value.height
@@ -409,8 +417,6 @@ class ComfyUI:
         self.batch_count: int = batch_count or default_value.batch_count
         self.total_count: int = self.batch_count * self.batch_size
         self.model: str = model or config.comfyui_model or default_value.model
-        self.override = override or default_value.override
-        self.override_ng = override_ng or default_value.override_ng
         self.forward: bool = forward or default_value.forward
         self.loras: list = []
 
@@ -534,7 +540,7 @@ class ComfyUI:
                 await run_later(video.send())
 
         await self.unimessage.send(reply_to=True)
-        
+
     async def send_extra_info(self, message, reply=False):
         if not self.silent:
             await send_msg_and_revoke(message, reply)
@@ -781,11 +787,13 @@ class ComfyUI:
             },
             "prompt": {
                 "text": self.prompt,
-                "Text": self.prompt
+                "Text": self.prompt,
+                "prompt": self.prompt
             },
             "negative_prompt": {
                 "text": self.negative_prompt,
-                "Text": self.negative_prompt
+                "Text": self.negative_prompt,
+                "prompt": self.negative_prompt
             },
             "checkpoint": {
                 "ckpt_name": self.model if self.model else None,
@@ -874,18 +882,18 @@ class ComfyUI:
                                     api_json[node]['inputs'][key] = upscale_size
 
                                 elif "value" in override_action:
-                                        override_value = raw_api_json[node]['inputs'][key]
-                                        if "_" in override_action:
-                                            override_value = override_action.split("_")[1]
-                                            override_type = override_action.split("_")[2]
-                                            if override_type == "int":
-                                                override_value = int(override_value)
-                                            elif override_type == "float":
-                                                override_value = float(override_value)
-                                            elif override_type == "str":
-                                                override_value = str(override_value)
+                                    override_value = raw_api_json[node]['inputs'][key]
+                                    if "_" in override_action:
+                                        override_value = override_action.split("_")[1]
+                                        override_type = override_action.split("_")[2]
+                                        if override_type == "int":
+                                            override_value = int(override_value)
+                                        elif override_type == "float":
+                                            override_value = float(override_value)
+                                        elif override_type == "str":
+                                            override_value = str(override_value)
 
-                                        api_json[node]['inputs'][key] = override_value
+                                    api_json[node]['inputs'][key] = override_value
 
                                 elif "image" in override_action:
                                     image_id = int(override_action.split("_")[1])
@@ -923,6 +931,10 @@ class ComfyUI:
                                 json_key = arg['dest']
 
                             update_node = {}
+
+                            if "default" in arg:
+                                default_value = arg["default"]
+                                update_node[json_key] = default_value
 
                             if hasattr(self.args, org_key):
                                 get_value = args_key if args_key else json_key
@@ -1019,12 +1031,12 @@ class ComfyUI:
                                             final_clip_node_id = from_clip_node_id
 
                                         elif index != len(self.loras) - 1:
-                                            final_model_node_id = str(self_node_id-1)
-                                            final_clip_node_id = str(self_node_id-1)
+                                            final_model_node_id = str(self_node_id - 1)
+                                            final_clip_node_id = str(self_node_id - 1)
 
                                         else:
-                                            final_model_node_id = str(self_node_id-1)
-                                            final_clip_node_id = str(self_node_id-1)
+                                            final_model_node_id = str(self_node_id - 1)
+                                            final_clip_node_id = str(self_node_id - 1)
 
                                             for k, v in v['to'].items():
                                                 if k == "model":
@@ -1148,8 +1160,8 @@ class ComfyUI:
                                         self.send_msg_to_private(
                                             f"你的任务已经完成, 获取结果发送 queue -get {task_id} -be {self.backend_index}",
                                             is_image=False
-                                            )
                                         )
+                                    )
                                 # 获取返回的文件url
                                 self.resp_msg_list += [await self.get_media(task_id, backend_url)]
                                 await ws.close()
@@ -1258,7 +1270,7 @@ class ComfyUI:
         task_list = [self.prompt_init(self.prompt), self.prompt_init(self.negative_prompt)]
         self.prompt, self.negative_prompt = await asyncio.gather(*task_list, return_exceptions=False)
         # 文字审核
-        resp = await txt_audit(str(self.prompt)+str(self.negative_prompt))
+        resp = await txt_audit(str(self.prompt) + str(self.negative_prompt))
         if "yes" in resp:
             raise ComfyuiExceptions.TextContentNotSafeError
 
@@ -1283,7 +1295,6 @@ class ComfyUI:
 
             await self.select_backend()
             for i in range(self.batch_count):
-
                 self.seed += 1
                 task_info = await self.posting()
                 await self.heart_beat([task_info])
@@ -1357,7 +1368,7 @@ class ComfyUI:
             remain_task = queue_['exec_info']['queue_remaining']
         else:
             remain_task = "N/A"
-            
+
         await self.send_extra_info(
             f"已选择工作流: {self.work_flows}, "
             f"正在生成, 此后端现在共有{remain_task}个任务在执行, "
@@ -1481,7 +1492,8 @@ class ComfyUI:
                 from nonebot.adapters.onebot.v11.exception import ActionFailed
                 from nonebot.adapters.onebot.v11 import MessageSegment
 
-                await self.bot.send_private_msg(user_id=self.user_id, message=MessageSegment.image(msg) if is_image else msg)
+                await self.bot.send_private_msg(user_id=self.user_id,
+                                                message=MessageSegment.image(msg) if is_image else msg)
             else:
                 raise NotImplementedError("暂不支持其他机器人")
 
@@ -1503,7 +1515,7 @@ class ComfyUI:
         async def audit_image_task(resp_, file_bytes):
 
             is_nsfw = await pic_audit_standalone(file_bytes, return_bool=True)
-            return (resp_, is_nsfw, file_bytes)
+            return resp_, is_nsfw, file_bytes
 
         if config.comfyui_audit:
             if 'OneBot V11' in self.adapters:
@@ -1579,7 +1591,7 @@ class ComfyUI:
             if self.selected_backend not in BACKEND_URL_LIST:
                 self.backend_index = -1
                 return self.selected_backend
-            
+
         self.available_backends, backend_dict = await get_ava_backends()
 
         if self.selected_backend:
@@ -1632,7 +1644,7 @@ class ComfyUI:
                             f'警告，所选的后端(索引: {self.backend_index})掉线，无法执行工作流({self.work_flows})，已自动切换',
                             reply=True
                         )
-                        
+
                     else:
                         await self.send_extra_info(
                             f'警告，所选的后端(索引: {self.backend_index})不支持当前工作流({self.work_flows})，已自动切换',
@@ -1645,7 +1657,7 @@ class ComfyUI:
                         self.backend_url = BACKEND_URL_LIST[random.choice(list(ava_backend_inter))]
         else:
             if self.backend_index not in self.available_backends:
-                
+
                 await self.send_extra_info(
                     f'警告, 所选的后端(索引: {self.backend_index})掉线, 已经自动选择到支持的后端',
                     reply=True
@@ -1686,7 +1698,6 @@ class ComfyUI:
         for media in media_bytes:
 
             for file_type, (file_bytes, file_format) in media.items():
-
                 path_ = path / file_type / short_time_format / user_id_path
                 path_.mkdir(parents=True, exist_ok=True)
 

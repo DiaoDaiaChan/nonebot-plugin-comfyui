@@ -55,12 +55,7 @@ class Session():  # 这里来自nonebot-plugin-gpt3
             ai_prompt.append({"role": "user", "content": conversations[i]})
             ai_prompt.append({"role": "assistant", "content": conversations[i + 1]})
 
-        other_prompt = [
-            {"role": "system", "content": input_sys_text},
-            {"role": "user", "content": to_openai}
-        ]
-
-        conv = other_prompt if input_sys_text else ai_prompt
+        conv = ai_prompt + [{"role": "user", "content": to_openai}]
         payload = {
             "messages": conv,
             "stop": [" Human:", " AI:"]

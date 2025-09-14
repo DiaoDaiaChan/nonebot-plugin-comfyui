@@ -1,6 +1,7 @@
 <div align="center">
 
 # nonebot-plugin-comfyui
+# 
 
 _⭐基于NoneBot2调用Comfyui(https://github.com/comfyanonymous/ComfyUI)进行绘图的插件⭐_  
 _⭐AI文生图,图生图...插件(comfyui能做到的它都可以)⭐_  

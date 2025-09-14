@@ -73,8 +73,7 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
     comfyui_parser = ArgumentParser()
 
     comfyui_parser.add_argument("prompt", nargs="*", help="正面提示词 example:prompt 1girl", type=str)
-    comfyui_parser.add_argument("-u", "-负面", nargs="*", dest="negative_prompt example:prompt -u '低质量'", type=str,
-                                help="负面提示词")
+    comfyui_parser.add_argument("-u", "-负面", nargs="*", dest="negative_prompt", type=str ,help="负面提示词 example:prompt -u ")
     comfyui_parser.add_argument("-ar", "-画面比例", dest="accept_ratio", type=str,
                                 help="画幅比例 example:prompt -ar 16:9")
     comfyui_parser.add_argument("-s", "-种子", dest="seed", type=int, help="种子 example:prompt -s 200224")
