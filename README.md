@@ -113,10 +113,10 @@ comfyui_group_config:
       114514: 1
     "enable_in_group": # 分别为群设置是否启用画图功能， 0为禁用， 1为启用
       114514: 1  
-comfyui_quiet: true  # 当comfyui_slient 为 false的时候可以使用，只返回开始执行目录的消息
+comfyui_quiet: true  # 安静模式，当comfyui_slient 为 false的时候可以使用，只返回开始执行命令的消息
 ```
 - reflex也添加了新的配置，现在可以设置某个工作流只能某个群或者管理员使用
-- 见[自动加载lora](./docs/md/node_control.md#限制某个工作流只能被管理员使用)
+- 见[限制某个工作流只能被管理员使用](./docs/md/node_control.md#限制某个工作流只能被管理员使用)
 ### 2025.03.18 0.8.2
 - 废弃配置项目 comfyui_qr_mode, 替代项目 comfyui_r18_action
 - 新的配置项, 见配置文件 comfyui_random_params (随机参数, 添加趣味性), comfyui_random_params_enable, comfyui_img_send
