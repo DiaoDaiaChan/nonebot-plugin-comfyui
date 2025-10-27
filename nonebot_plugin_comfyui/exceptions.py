@@ -77,3 +77,11 @@ class ComfyuiExceptions(BaseException):
     class SendImageToBotException(Exception):
         def __init__(self, message="机器人给自身发送图片获取图片url时失败"):
             super().__init__(message)
+
+    class WorkflowAdminLimitation(Exception):
+        def __init__(self, message="此工作流不允许非管理员用户使用"):
+            super().__init__(message)
+
+    class WorkflowGroupLimitation(Exception):
+        def __init__(self, message="此工作流不允在本群使用"):
+            super().__init__(message)

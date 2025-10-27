@@ -44,7 +44,7 @@ MAX_SEED = 2 ** 31
 OTHER_ACTION = {
     "override", "note", "presets", "media",
     "command", "reg_args", "visible", "output_prefix",
-    "daylimit", "lora", "available", "reflex", "only_available"
+    "daylimit", "lora", "available", "reflex", "only_available", "admin", "group"
 }
 
 __OVERRIDE_SUPPORT_KEYS__ = {
@@ -402,16 +402,21 @@ class ComfyUI:
         self.cfg_scale: float = cfg_scale or default_value.cfg_scale
         self.denoise_strength: float = denoise_strength or default_value.denoise_strength
 
-        self.sampler: str = (
-            self.reflex_dict['sampler'].get(sampler, "dpmpp_2m") if
-            sampler not in self.reflex_dict['sampler'].values() else
-            sampler or default_value.sampler
-        )
-        self.scheduler: str = (
-            self.reflex_dict['scheduler'].get(scheduler, "normal") if
-            scheduler not in self.reflex_dict['scheduler'].values() else
-            scheduler or default_value.scheduler
-        )
+        if sampler:
+            if sampler in self.reflex_dict['sampler'].values():
+                self.sampler = self.reflex_dict['sampler'][sampler]
+            else:
+                self.sampler = sampler
+        else:
+            self.sampler = default_value.sampler
+
+        if scheduler:
+            if scheduler in self.reflex_dict['scheduler'].values():
+                self.scheduler = self.reflex_dict['scheduler'][scheduler]
+            else:
+                self.scheduler = scheduler
+        else:
+            self.scheduler = default_value.scheduler
 
         self.batch_size: int = batch_size or default_value.batch_size
         self.batch_count: int = batch_count or default_value.batch_count
@@ -464,6 +469,14 @@ class ComfyUI:
         self.resp_msg: RespMsg = RespMsg()
         self.resp_msg_list: list[RespMsg] = []
 
+        self.is_obv11_exist: bool = True if 'OneBot V11' in self.adapters else False
+        if self.is_obv11_exist:
+            from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent, GroupMessageEvent, Message
+        self.group_id = str(self.nb_event.group_id if self.is_obv11_exist and isinstance(self.nb_event, GroupMessageEvent) else "")
+
+        self.text_pure_info: str = ''
+
+
     def set_max_values(self, max_dict):
         for key, max_value in max_dict.items():
             if hasattr(self, key):
@@ -475,7 +488,7 @@ class ComfyUI:
 
         try:
 
-            if 'OneBot V11' in self.adapters:
+            if self.is_obv11_exist:
 
                 from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent, GroupMessageEvent, Message
 
@@ -510,7 +523,7 @@ class ComfyUI:
 
                 task_list = []
                 for unimsg in msg:
-                    task_list.append(unimsg.export())
+                    task_list.append(await unimsg.export())
 
                 if self.uni_long_text:
                     for uni in self.uni_long_text:
@@ -565,7 +578,7 @@ class ComfyUI:
             if self.pure:
                 msg_ = resp.error_msg + resp.resp_img + resp.resp_text
             else:
-                msg_ = f"任务id: {resp.task_id}\n审核模式: {audit_mode}\n后端索引: {resp.backend_index}\n" + resp.error_msg + resp.resp_img + resp.resp_text
+                msg_ = f"任务id: {resp.task_id}\n审核模式: {audit_mode}\n后端索引: {resp.backend_index}\n{self.text_pure_info}\n" + resp.error_msg + resp.resp_img + resp.resp_text
             self.unimessage += msg_
             msg_list.append(msg_)
 
@@ -916,7 +929,7 @@ class ComfyUI:
                             args_dict = vars(self.args)
                             org_key = arg["dest"]
                             type_ = None
-                            args_key = None
+                            json_key = arg['dest']
                             preset_dict = {}
 
                             if "preset" in arg:
@@ -924,11 +937,7 @@ class ComfyUI:
                                 preset_dict = arg["preset"]
 
                             if "dest_to_value" in arg:
-                                json_key = arg["dest_to_value"][arg["dest"]]
-                                args_key = list(arg["dest_to_value"].keys())[0]
-
-                            else:
-                                json_key = arg['dest']
+                                json_key = list(arg["dest_to_value"].keys())[0]
 
                             update_node = {}
 
@@ -937,9 +946,7 @@ class ComfyUI:
                                 update_node[json_key] = default_value
 
                             if hasattr(self.args, org_key):
-                                get_value = args_key if args_key else json_key
-
-                                update_value = args_dict[get_value]
+                                update_value = args_dict[org_key]
 
                                 if preset_dict:
                                     if update_value in preset_dict:
@@ -1186,10 +1193,16 @@ class ComfyUI:
 
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def prompt_init(self, tags_list) -> str:
+    async def prompt_init(self, tags_list, audit=False) -> str:
         tags: str = " ".join(str(i) for i in tags_list if isinstance(i, str))
         tags = re.sub(r"\[CQ[^\s]*?]", "", tags)
         tags = tags.replace("\\\\", "\\")
+
+        if audit:
+            resp = await txt_audit(str(tags_list))
+
+            if "yes" in resp:
+                raise ComfyuiExceptions.TextContentNotSafeError
 
         if config.comfyui_translate and not self.no_trans:
             tags_list_split = [tag.strip() for tag in tags.split(",") if tag.strip()]  # 使用split分割标签
@@ -1252,27 +1265,7 @@ class ComfyUI:
 
     async def exec_generate(self, daily_call=None):
 
-        # 获取工作流json
-        try:
-            await self.get_workflows_json()
-            # 工作流每日调用限制
-            if daily_call:
-                limit_ = self.reflex_json.get('daylimit')
-                if limit_:
-                    if limit_ < daily_call:
-                        raise ComfyuiExceptions.ReachWorkFlowExecLimitations
-
-        except FileNotFoundError:
-            raise ComfyuiExceptions.ReflexJsonNotFoundError
-
-        self.set_max_values(config.comfyui_max_dict)
-        # prompt初始化
-        task_list = [self.prompt_init(self.prompt), self.prompt_init(self.negative_prompt)]
-        self.prompt, self.negative_prompt = await asyncio.gather(*task_list, return_exceptions=False)
-        # 文字审核
-        resp = await txt_audit(str(self.prompt) + str(self.negative_prompt))
-        if "yes" in resp:
-            raise ComfyuiExceptions.TextContentNotSafeError
+        await self.pre_generate(daily_call)
 
         if self.backend_url is None:
             raise ComfyuiExceptions.NoAvailableBackendError
@@ -1369,6 +1362,9 @@ class ComfyUI:
         else:
             remain_task = "N/A"
 
+        # if self.silent_mode == 2:
+        #     await send_msg_and_revoke('指令收到了，正在生成。', True, 10)
+        #     self.silent = True
         await self.send_extra_info(
             f"已选择工作流: {self.work_flows}, "
             f"正在生成, 此后端现在共有{remain_task}个任务在执行, "
@@ -1488,7 +1484,7 @@ class ComfyUI:
         from nonebot.exception import ActionFailed
 
         try:
-            if 'OneBot V11' in self.adapters:
+            if self.is_obv11_exist:
                 from nonebot.adapters.onebot.v11.exception import ActionFailed
                 from nonebot.adapters.onebot.v11 import MessageSegment
 
@@ -1514,11 +1510,11 @@ class ComfyUI:
 
         async def audit_image_task(resp_, file_bytes):
 
-            is_nsfw = await pic_audit_standalone(file_bytes, return_bool=True)
+            is_nsfw = await pic_audit_standalone(file_bytes, return_bool=True, group_id=self.group_id)
             return resp_, is_nsfw, file_bytes
 
         if config.comfyui_audit:
-            if 'OneBot V11' in self.adapters:
+            if self.is_obv11_exist:
                 from nonebot.adapters.onebot.v11 import PrivateMessageEvent
 
                 for resp_ in self.resp_msg_list:
@@ -1553,13 +1549,19 @@ class ComfyUI:
                                 resp_.resp_img += "\n这张图太涩了, 不给你看"
 
                         else:
-                            if config.comfyui_img_send == 1:
+                            img_send_group = config.comfyui_group_config.get('img_send')
+                            img_send_level = config.comfyui_img_send
+                            if img_send_group:
+                                if self.group_id in img_send_group:
+                                    img_send_level = config.comfyui_group_config['img_send'][self.group_id]
+
+                            if img_send_level == 1:
                                 resp_.resp_img += UniMessage.image(raw=file_bytes)
-                            elif config.comfyui_img_send == 2:
+                            elif img_send_level == 2:
                                 qr_img, _ = await get_qr(file_bytes, self.bot)
                                 qr_img = UniMessage.image(raw=qr_img)
                                 resp_.resp_img += qr_img
-                            elif config.comfyui_img_send == 3:
+                            elif img_send_level == 3:
                                 _, img_url = await get_qr(file_bytes, self.bot)
                                 resp_.resp_img += f"\n这是图片url: {img_url}"
 
@@ -1595,8 +1597,10 @@ class ComfyUI:
         self.available_backends, backend_dict = await get_ava_backends()
 
         if self.selected_backend:
-            if self.selected_backend in backend_dict:
+            if self.selected_backend in BACKEND_URL_LIST:
                 self.backend_task.update({self.selected_backend: backend_dict[self.selected_backend]})
+                self.backend_index = BACKEND_URL_LIST.index(self.backend_url)
+                return self.backend_url
 
         else:
 
@@ -1711,3 +1715,54 @@ class ComfyUI:
                     await f.write(self.__str__())
 
                 logger.info(f"文件已保存，路径: {file}")
+
+    async def pre_generate(self, daily_call=None):
+        # 获取工作流json
+        try:
+            await self.get_workflows_json()
+            # 工作流每日调用限制
+            if daily_call:
+                limit_ = self.reflex_json.get('daylimit')
+                if limit_:
+                    if limit_ < daily_call:
+                        raise ComfyuiExceptions.ReachWorkFlowExecLimitations
+
+        except FileNotFoundError:
+            raise ComfyuiExceptions.ReflexJsonNotFoundError
+
+        # 判断是否只有管理员能使用此工作流
+        admin = self.reflex_json.get('admin')
+        if admin and self.user_id not in config.comfyui_superusers:
+            raise ComfyuiExceptions.WorkflowAdminLimitation
+
+        # 判断是否只群组能使用此工作流
+        group = self.reflex_json.get('group')
+        if group and self.group_id:
+            if int(self.group_id) not in group:
+                raise ComfyuiExceptions.WorkflowGroupLimitation
+
+        if self.user_id not in config.comfyui_superusers:
+            self.set_max_values(config.comfyui_max_dict)
+        # prompt初始化
+        task_list = [self.prompt_init(self.prompt, True), self.prompt_init(self.negative_prompt)]
+        self.prompt, self.negative_prompt = await asyncio.gather(*task_list, return_exceptions=False)
+
+        # 文字审核
+        text_audit_dict = config.comfyui_group_config.get("reject_nsfw_prompts")
+        if text_audit_dict:
+            if self.group_id in text_audit_dict:
+                audit_level = text_audit_dict[self.group_id]
+
+                if audit_level == 1:
+                    sys_prompt = "接下来请你对一些聊天内容进行审核,如果内容出现色情,血腥内容则请你输出<yes>, 如果没有则输出<no>,"
+                    resp = await txt_audit(str(self.prompt), prompt=sys_prompt)
+                    if "yes" in resp:
+                        raise ComfyuiExceptions.TextContentNotSafeError
+
+                elif audit_level == 2:
+                    sys_prompt = '接下来请你对一些聊天内容进行审核,如果内容出现色情,血腥内容,请你将其去掉,只需要回复调整过的内容,不要回复其他内容'
+                    resp = await txt_audit(str(self.prompt), prompt=sys_prompt)
+                    self.prompt = resp
+                    self.text_pure_info = f'由于规则设置，提示词已被调整为: {resp}'
+
+

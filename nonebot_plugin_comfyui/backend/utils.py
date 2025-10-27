@@ -71,7 +71,8 @@ async def pic_audit_standalone(
         img_base64,
         is_return_tags=False,
         audit=False,
-        return_bool=False
+        return_bool=False,
+        group_id=None
 ):
 
     byte_img = (
@@ -137,18 +138,30 @@ async def pic_audit_standalone(
         value.sort(reverse=True)
         reverse_dict = {value: key for key, value in possibilities.items()}
         logger.info(message)
-        if config.comfyui_audit_level == 1:
+        group_level = config.comfyui_group_config.get("audit_level_group")
+        if group_id:
+            if group_id in group_level:
+                audit_level = int(group_level[group_id])
+                logger.info(f"单独为群{group_id}设置审核等级{audit_level}")
+            else:
+                audit_level = config.comfyui_audit_level
+        else:
+            audit_level = config.comfyui_audit_level
+
+        if audit_level == 1:
             return True if reverse_dict[value[0]] == "explicit" else False
-        elif config.comfyui_audit_level == 2:
+        elif audit_level == 2:
             return True if reverse_dict[value[0]] == "questionable" or reverse_dict[value[0]] == "explicit" else False
-        elif config.comfyui_audit_level == 3:
+        elif audit_level == 3:
             return True if (
                     reverse_dict[value[0]] == "questionable" or
                     reverse_dict[value[0]] == "explicit" or
                     reverse_dict[value[0]] == "sensitive"
             ) else False
-        elif config.comfyui_audit_level == 100:
+        elif audit_level == 100:
             return True
+        elif audit_level == 0:
+            return False
 
     if is_return_tags:
         return message, tags
@@ -157,19 +170,19 @@ async def pic_audit_standalone(
     return message
 
 
-async def send_msg_and_revoke(message: UniMessage | str, reply_to=False, r=None):
+async def send_msg_and_revoke(message: UniMessage | str, reply_to=False, r=None, time=None):
     if isinstance(message, str):
         message = UniMessage(message)
 
-    async def main(message, reply_to, r):
+    async def main(message, reply_to, r, time):
         if r:
-            await revoke_msg(r)
+            await revoke_msg(r, time)
         else:
             r = await message.send(reply_to=reply_to)
-            await revoke_msg(r)
+            await revoke_msg(r, time)
         return
 
-    await run_later(main(message, reply_to, r), 2)
+    await run_later(main(message, reply_to, r, time), 2)
 
 
 async def revoke_msg(r, time=None, bot=None):

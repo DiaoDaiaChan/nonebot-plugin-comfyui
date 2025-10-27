@@ -133,6 +133,17 @@ comfyui_r18_action: 1
 # 正常情况下图片发送模式, 1: 正常发送, 2: 二维码, 3: 图片url
 comfyui_img_send: 1
 
+
+comfyui_group_config:
+    "audit_level_group":  # 分别为群设置不同的审核， 值同comfyui_audit_level， 0意为不审核
+      114514: 0
+      200224: 1
+    "reject_nsfw_prompts":  # 分别为群设置不同的文字审核， 1为检测到nsfw直接拦截， 2为替换掉提示词中的nsfw prompt,
+      114514: 1
+    "img_send":  # 单独为群设置图片发送方式，同comfyui_img_send
+      114514:
+
+
 # 超级用户, 不受时间限制
 comfyui_superusers:
   -

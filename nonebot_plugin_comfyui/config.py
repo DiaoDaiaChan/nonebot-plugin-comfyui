@@ -31,6 +31,11 @@ class Config(BaseModel):
     comfyui_audit_local: bool = False
     comfyui_audit_gpu: bool = False
     comfyui_audit_level: int = 2
+    comfyui_group_config: dict = {
+        "audit_level_group": {},
+        "reject_nsfw_prompts": {},
+        "img_send": {}
+    }
     comfyui_audit_comp: bool = False
     comfyui_audit_site: str = "http://server.20020026.xyz:7865"
     comfyui_save_image: bool = True

@@ -70,7 +70,8 @@ on_alconna(
     Alconna("dan", Args["tag", str]["limit?", int]),
     handlers=[danbooru_handler],
     block=True,
-    use_cmd_start=True
+    use_cmd_start=True,
+    aliases={"查tag"}
 )
 
 llm = on_shell_command(
