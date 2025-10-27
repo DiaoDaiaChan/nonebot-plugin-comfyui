@@ -139,14 +139,14 @@ comfyui_img_send: 1
 
 comfyui_group_config:
     "audit_level_group":  # 分别为群设置不同的审核， 值同comfyui_audit_level， 0意为不审核
-      114514: 0
-      200224: 1
+      "114514": 0
+      "200224": 1
     "reject_nsfw_prompts":  # 分别为群设置不同的文字审核， 1为检测到nsfw直接拦截， 2为替换掉提示词中的nsfw prompt,
-      114514: 1
+      "114514": 1
     "img_send":  # 单独为群设置图片发送方式，同comfyui_img_send
-      114514: 1
+      "114514": 1
     "enable_in_group": # 分别为群设置是否启用画图功能， 0为禁用， 1为启用
-      114514: 1
+      "114514": 1
 
 
 # 超级用户, 不受时间限制

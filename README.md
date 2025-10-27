@@ -103,16 +103,17 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 ### 2025.10.27 0.8.3
 - 新增配置项
 ```
+# 键应为字符串
 comfyui_group_config:
     "audit_level_group":  # 分别为群设置不同的审核， 值同comfyui_audit_level， 0意为不审核
-      114514: 0
-      200224: 1
+      "114514": 0
+      "200224": 1
     "reject_nsfw_prompts":  # 分别为群设置不同的文字审核， 1为检测到nsfw直接拦截， 2为替换掉提示词中的nsfw prompt,
-      114514: 1
+      "114514": 1
     "img_send":  # 单独为群设置图片发送方式，同comfyui_img_send
-      114514: 1
+      "114514": 1
     "enable_in_group": # 分别为群设置是否启用画图功能， 0为禁用， 1为启用
-      114514: 1  
+      "114514": 1
 comfyui_quiet: true  # 安静模式，当comfyui_slient 为 false的时候可以使用，只返回开始执行命令的消息
 ```
 - reflex也添加了新的配置，现在可以设置某个工作流只能某个群或者管理员使用

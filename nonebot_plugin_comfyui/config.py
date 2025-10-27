@@ -31,7 +31,7 @@ class Config(BaseModel):
     comfyui_audit_local: bool = False
     comfyui_audit_gpu: bool = False
     comfyui_audit_level: int = 2
-    comfyui_group_config: dict = {
+    comfyui_group_config: dict[str, dict[str, int]] = {
         "audit_level_group": {},
         "reject_nsfw_prompts": {},
         "img_send": {},
