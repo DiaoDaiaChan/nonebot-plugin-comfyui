@@ -68,6 +68,9 @@ comfyui_shape_preset:
 # 全局静默(不返回小提示或者各种追踪信息)
 comfyui_silent: false
 
+# 安静模式，只返回队列开始信息， comfyui_silent为false的时候可用
+comfyui_quiet: false
+
 # 用于限制: 最大批数, 张数, 高度, 宽度以及步数
 comfyui_max_dict:
   batch_size: 2
@@ -141,7 +144,9 @@ comfyui_group_config:
     "reject_nsfw_prompts":  # 分别为群设置不同的文字审核， 1为检测到nsfw直接拦截， 2为替换掉提示词中的nsfw prompt,
       114514: 1
     "img_send":  # 单独为群设置图片发送方式，同comfyui_img_send
-      114514:
+      114514: 1
+    "enable_in_group": # 分别为群设置是否启用画图功能， 0为禁用， 1为启用
+      114514: 1
 
 
 # 超级用户, 不受时间限制

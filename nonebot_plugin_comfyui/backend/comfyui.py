@@ -449,6 +449,7 @@ class ComfyUI:
         self.available_backends: set[int] = set({})
         self.concurrency = concurrency or default_value.concurrency
         self.silent = silent or config.comfyui_silent
+        self.quiet = config.comfyui_quiet
         self.notice = notice or default_value.notice
         self.no_trans = no_trans
         self.pure = pure or default_value.pure
@@ -476,6 +477,12 @@ class ComfyUI:
 
         self.text_pure_info: str = ''
 
+        enable_group_id = config.comfyui_group_config.get('enable_in_group')
+
+        if enable_group_id:
+            if self.group_id in enable_group_id:
+                if int(enable_group_id[self.group_id]) == 0:
+                    raise ComfyuiExceptions.ComfyuiNotAvaInCurrentGroup
 
     def set_max_values(self, max_dict):
         for key, max_value in max_dict.items():
@@ -1362,9 +1369,9 @@ class ComfyUI:
         else:
             remain_task = "N/A"
 
-        # if self.silent_mode == 2:
-        #     await send_msg_and_revoke('指令收到了，正在生成。', True, 10)
-        #     self.silent = True
+        if self.quiet and self.silent is False:
+            await send_msg_and_revoke('指令收到了，正在生成。', True, 10)
+
         await self.send_extra_info(
             f"已选择工作流: {self.work_flows}, "
             f"正在生成, 此后端现在共有{remain_task}个任务在执行, "

@@ -85,3 +85,7 @@ class ComfyuiExceptions(BaseException):
     class WorkflowGroupLimitation(Exception):
         def __init__(self, message="此工作流不允在本群使用"):
             super().__init__(message)
+
+    class ComfyuiNotAvaInCurrentGroup(Exception):
+        def __init__(self, message="本群不可以使用此插件"):
+            super().__init__(message)

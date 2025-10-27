@@ -100,6 +100,23 @@ git clone https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
 - [x] [nonebot2](https://github.com/nonebot/nonebot2): 本项目的基础，非常好用的聊天机器人框架。
 
 ## 更新日志
+### 2025.10.27 0.8.3
+- 新增配置项
+```
+comfyui_group_config:
+    "audit_level_group":  # 分别为群设置不同的审核， 值同comfyui_audit_level， 0意为不审核
+      114514: 0
+      200224: 1
+    "reject_nsfw_prompts":  # 分别为群设置不同的文字审核， 1为检测到nsfw直接拦截， 2为替换掉提示词中的nsfw prompt,
+      114514: 1
+    "img_send":  # 单独为群设置图片发送方式，同comfyui_img_send
+      114514: 1
+    "enable_in_group": # 分别为群设置是否启用画图功能， 0为禁用， 1为启用
+      114514: 1  
+comfyui_quiet: true  # 当comfyui_slient 为 false的时候可以使用，只返回开始执行目录的消息
+```
+- reflex也添加了新的配置，现在可以设置某个工作流只能某个群或者管理员使用
+- 见[自动加载lora](./docs/md/node_control.md#限制某个工作流只能被管理员使用)
 ### 2025.03.18 0.8.2
 - 废弃配置项目 comfyui_qr_mode, 替代项目 comfyui_r18_action
 - 新的配置项, 见配置文件 comfyui_random_params (随机参数, 添加趣味性), comfyui_random_params_enable, comfyui_img_send

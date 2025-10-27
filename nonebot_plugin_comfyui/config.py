@@ -34,7 +34,8 @@ class Config(BaseModel):
     comfyui_group_config: dict = {
         "audit_level_group": {},
         "reject_nsfw_prompts": {},
-        "img_send": {}
+        "img_send": {},
+        "enable_in_group": {},
     }
     comfyui_audit_comp: bool = False
     comfyui_audit_site: str = "http://server.20020026.xyz:7865"
@@ -55,6 +56,7 @@ class Config(BaseModel):
     }
     comfyui_superusers: list = []
     comfyui_silent: bool = False
+    comfyui_quiet: bool = False
     comfyui_max_dict: dict = {"batch_size": 2, "batch_count": 2, "width": 2048, "height": 2048, "steps": 100}
     comfyui_http_proxy: str = ""
     comfyui_openai: dict = {
