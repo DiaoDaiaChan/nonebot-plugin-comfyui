@@ -1,6 +1,7 @@
 import copy
 import json
 import random
+import time
 import traceback
 import uuid
 import os
@@ -123,6 +124,7 @@ class DefaultValue:
     concurrency: bool = False
     pure: bool = False
     notice: bool = False
+    llm_preset: int = 0
 
     preset_prompt: str = ''
     preset_negative_prompt: str = ''
@@ -337,6 +339,7 @@ class ComfyUI:
             no_trans: Optional[bool] = False,
             pure: Optional[bool] = False,
             send_msg_private: Optional[bool] = True,
+            llm_preset: Optional[int] = 0,
             **kwargs
     ):
         default_value = DefaultValue().get_default_value_instance()
@@ -454,6 +457,7 @@ class ComfyUI:
         self.no_trans = no_trans
         self.pure = pure or default_value.pure
         self.send_msg_private = send_msg_private
+        self.llm_preset = llm_preset or default_value.llm_preset
 
         # 用户相关
         self.client_id = None
@@ -461,6 +465,12 @@ class ComfyUI:
         self.task_id = None
         self.adapters = nonebot.get_adapters()
         self.spend_time: int = 0
+        self.spend_time_steps: dict = {
+            "pre_process": 0,
+            "audit": 0,
+            "request": 0,
+            "get_resp": 0
+        }
 
         self.init_images = []
         self.unimessage = UniMessage.text('')
@@ -476,6 +486,7 @@ class ComfyUI:
         self.group_id = str(self.nb_event.group_id if self.is_obv11_exist and isinstance(self.nb_event, GroupMessageEvent) else "")
 
         self.text_pure_info: str = ''
+        self.audit_info: str = ''
 
         enable_group_id = config.comfyui_group_config.get('enable_in_group')
 
@@ -562,7 +573,7 @@ class ComfyUI:
         await self.unimessage.send(reply_to=True)
 
     async def send_extra_info(self, message, reply=False):
-        if not self.silent:
+        if not self.silent and self.quiet is False:
             await send_msg_and_revoke(message, reply)
 
     async def send_all_msg(self):
@@ -579,13 +590,25 @@ class ComfyUI:
         elif config.comfyui_audit_level == 100:
             audit_mode = '全部拦截'
 
+        if config.comfyui_dual_audit:
+            audit_mode += '双重审核/'
+
+        spend_time_word= ["文字预处理", "图片审核", "请求", "获取结果"]
+
+        time_info = "各步骤耗时:"
+        for word, key in zip(spend_time_word, ["pre_process", "audit", "request", "get_resp"]):
+            time_info += f"  {word}: {self.spend_time_steps[key]:.3f}s;"
+
         msg_list = []
 
+        pure = self.pure
+        if self.group_id:
+            pure = True if config.comfyui_group_config.get("pure", None) else self.pure
         for resp in self.resp_msg_list:
-            if self.pure:
+            if pure:
                 msg_ = resp.error_msg + resp.resp_img + resp.resp_text
             else:
-                msg_ = f"任务id: {resp.task_id}\n审核模式: {audit_mode}\n后端索引: {resp.backend_index}\n{self.text_pure_info}\n" + resp.error_msg + resp.resp_img + resp.resp_text
+                msg_ = f"{time_info}\n任务id: {resp.task_id}, 后端索引: {resp.backend_index}\n" + resp.error_msg + resp.resp_img + resp.resp_text + f"\n审核信息:\n {self.audit_info}\n{self.text_pure_info}"
             self.unimessage += msg_
             msg_list.append(msg_)
 
@@ -1232,6 +1255,8 @@ class ComfyUI:
             tags_other = [tag for tag in tags_list_split if not re.search('[\u4e00-\u9fa5]', tag)]
             all_tags = ", ".join(filter(None, [tags_en, ", ".join(tags_other)]))
             tags = all_tags
+        if self.llm_preset:
+            tags = await get_user_session(20020205).main(tags, preset=self.llm_preset)
         return tags
 
     async def get_lora_from_prompt(self):
@@ -1272,7 +1297,10 @@ class ComfyUI:
 
     async def exec_generate(self, daily_call=None):
 
+        start_time = time.time()
         await self.pre_generate(daily_call)
+        end_time = time.time()
+        self.spend_time_steps["pre_process"] = end_time - start_time
 
         if self.backend_url is None:
             raise ComfyuiExceptions.NoAvailableBackendError
@@ -1302,6 +1330,7 @@ class ComfyUI:
         self.resp_msg_list = [item for item in self.resp_msg_list if item is not None]
         # 下载任务
         await self.download_img()
+        self.spend_time_steps["request"] = self.spend_time
 
     async def posting(self):
 
@@ -1370,7 +1399,7 @@ class ComfyUI:
             remain_task = "N/A"
 
         if self.quiet and self.silent is False:
-            await send_msg_and_revoke('指令收到了，正在生成。', True, 10)
+            await send_msg_and_revoke(f'命令收到了-_-正在生成。工作流：{self.work_flows}', True, None, 10)
 
         await self.send_extra_info(
             f"已选择工作流: {self.work_flows}, "
@@ -1395,6 +1424,7 @@ class ComfyUI:
                 return json.loads(await response.read())
 
     async def download_img(self):
+        start_time = time.time()
         try:
 
             image_byte_save = []
@@ -1434,8 +1464,13 @@ class ComfyUI:
         except Exception as e:
             raise ComfyuiExceptions.GetResultError(f"获取返回结果时出错: {e}")
         else:
+            end_time = time.time()
+            self.spend_time_steps["get_resp"] = end_time - start_time
             try:
+                start_time = time.time()
                 await self.audit_func(image_byte_tid)
+                end_time = time.time()
+                self.spend_time_steps["audit"] = end_time - start_time
             except Exception as e:
                 raise ComfyuiExceptions.AuditError(f"审核出错: {e}")
 
@@ -1512,17 +1547,21 @@ class ComfyUI:
 
     async def audit_func(self, media_bytes):
 
+        if self.is_obv11_exist:
+            from nonebot.adapters.onebot.v11 import PrivateMessageEvent
+
         audit_tasks = []
         other_media = []
 
         async def audit_image_task(resp_, file_bytes):
 
-            is_nsfw = await pic_audit_standalone(file_bytes, return_bool=True, group_id=self.group_id)
+            is_nsfw = await pic_audit_standalone(file_bytes, group_id=self.group_id)
+            self.audit_info = is_nsfw["message"]
+            is_nsfw = is_nsfw["is_nsfw"]
+
             return resp_, is_nsfw, file_bytes
 
         if config.comfyui_audit:
-            if self.is_obv11_exist:
-                from nonebot.adapters.onebot.v11 import PrivateMessageEvent
 
                 for resp_ in self.resp_msg_list:
                     task_id = resp_.task_id
@@ -1586,7 +1625,24 @@ class ComfyUI:
                 for media in media_list:
                     for file_type, (file_bytes, file_format) in media.items():
                         if file_type == "image":
-                            resp_.resp_img += UniMessage.image(raw=file_bytes)
+                            if isinstance(self.nb_event, PrivateMessageEvent):
+                                resp_.resp_img += UniMessage.image(raw=file_bytes)
+                            else:
+                                img_send_group = config.comfyui_group_config.get('img_send')
+                                img_send_level = config.comfyui_img_send
+                                if img_send_group:
+                                    if self.group_id in img_send_group:
+                                        img_send_level = config.comfyui_group_config['img_send'][self.group_id]
+
+                                if img_send_level == 1:
+                                    resp_.resp_img += UniMessage.image(raw=file_bytes)
+                                elif img_send_level == 2:
+                                    qr_img, _ = await get_qr(file_bytes, self.bot)
+                                    qr_img = UniMessage.image(raw=qr_img)
+                                    resp_.resp_img += qr_img
+                                elif img_send_level == 3:
+                                    _, img_url = await get_qr(file_bytes, self.bot)
+                                    resp_.resp_img += f"\n这是图片url: {img_url}"
                         elif file_type == "video":
                             resp_.resp_video.append(UniMessage.video(raw=file_bytes))
                         elif file_type == "audio":

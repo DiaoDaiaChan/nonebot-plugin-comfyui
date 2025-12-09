@@ -47,6 +47,8 @@ comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_t
                             help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
 comfyui_parser.add_argument("-nt", "-不翻译", dest="no_trans", action="store_true",
                             help="不翻译中文输入 example:prompt -nt")
+comfyui_parser.add_argument("-llm预设", "-llm", dest="llm_preset", type=int, help="通过llm处理prompt时使用的提示词预设 example:prompt -llm 1",
+                            default=1)
 
 queue_parser = ArgumentParser()
 
@@ -112,6 +114,9 @@ async def rebuild_parser(wf, reg_args: dict | None = None):
                                 help="不翻译中文输入 example:prompt -nt")
     comfyui_parser.add_argument("-notice", "-通知", dest="notice", action="store_true",
                                 help="工作流执行完成的时候私聊通知, 适用于长工作流 example:prompt -notice")
+    comfyui_parser.add_argument("-llm预设", "-llm", dest="llm_preset", type=int,
+                                help="通过llm处理prompt时使用的提示词预设 example:prompt -llm 1",
+                                default=1)
 
     if reg_args:
 

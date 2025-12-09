@@ -12,6 +12,7 @@ import ssl
 import qrcode
 import socket
 import time
+import tempfile
 
 from urllib.parse import urlparse
 from aiohttp import TCPConnector
@@ -26,6 +27,15 @@ from asyncio import get_running_loop
 from nonebot_plugin_alconna import UniMessage
 from jinja2 import Environment, FileSystemLoader
 
+
+NUDENET_UNSAFE_LABELS = [
+    "FEMALE_GENITALIA_EXPOSED",
+    "MALE_GENITALIA_EXPOSED",
+    "FEMALE_BREAST_EXPOSED",
+    "ANUS_EXPOSED"
+]
+
+
 cd = {}
 daily_calls = {}
 PLUGIN_VERSION = '0.8'
@@ -39,6 +49,12 @@ async def run_later(func, delay=1):
             func
         )
     )
+
+
+def clean_llm_response(text):
+    pattern = r'<?think>.*?</think>'
+    cleaned_text = re.sub(pattern, '', text, flags=re.DOTALL)
+    return cleaned_text.strip()
 
 
 async def set_res(new_img: Image) -> str:
@@ -67,20 +83,15 @@ async def set_res(new_img: Image) -> str:
     return img_base64
 
 
-async def pic_audit_standalone(
+async def wd_audit(
         img_base64,
-        is_return_tags=False,
-        audit=False,
-        return_bool=False,
         group_id=None
 ):
-
-    byte_img = (
-        img_base64 if isinstance(img_base64, bytes)
-        else base64.b64decode(img_base64)
-    )
-    img = Image.open(BytesIO(byte_img)).convert("RGB")
-    img_base64 = await set_res(img)
+    audit_info = {
+        "is_nsfw": False,
+        "message": "",
+        "tags": "",
+    }
 
     async def get_caption(payload):
 
@@ -104,7 +115,6 @@ async def pic_audit_standalone(
                         url=f"{config.comfyui_audit_site}/tagger/v1/interrogate",
                         json=payload
                 ) as resp:
-
                     if resp.status not in [200, 201]:
                         resp_text = await resp.text()
                         logger.error(f"API失败，错误信息:{resp.status, resp_text}")
@@ -132,42 +142,171 @@ async def pic_audit_standalone(
     value.sort(reverse=True)
     reverse_dict = {value: key for key, value in to_user_dict.items()}
     message += f"最终结果为:{reverse_dict[value[0]].rjust(5)}"
+    max_message = max(to_user_dict.items(), key=lambda item: item[1])
 
-    if return_bool:
-        value = list(possibilities.values())
-        value.sort(reverse=True)
-        reverse_dict = {value: key for key, value in possibilities.items()}
-        logger.info(message)
-        group_level = config.comfyui_group_config.get("audit_level_group")
-        if group_id:
-            if group_id in group_level:
-                audit_level = int(group_level[group_id])
-                logger.info(f"单独为群{group_id}设置审核等级{audit_level}")
-            else:
-                audit_level = config.comfyui_audit_level
+    value = list(possibilities.values())
+    value.sort(reverse=True)
+    reverse_dict = {value: key for key, value in possibilities.items()}
+    logger.info(message)
+    group_level = config.comfyui_group_config.get("audit_level_group")
+    if group_id:
+        if group_id in group_level:
+            audit_level = int(group_level[group_id])
+            logger.info(f"单独为群{group_id}设置审核等级{audit_level}")
         else:
             audit_level = config.comfyui_audit_level
+    else:
+        audit_level = config.comfyui_audit_level
 
-        if audit_level == 1:
-            return True if reverse_dict[value[0]] == "explicit" else False
-        elif audit_level == 2:
-            return True if reverse_dict[value[0]] == "questionable" or reverse_dict[value[0]] == "explicit" else False
-        elif audit_level == 3:
-            return True if (
-                    reverse_dict[value[0]] == "questionable" or
-                    reverse_dict[value[0]] == "explicit" or
-                    reverse_dict[value[0]] == "sensitive"
-            ) else False
-        elif audit_level == 100:
-            return True
-        elif audit_level == 0:
-            return False
+    is_nsfw = True
 
-    if is_return_tags:
-        return message, tags
-    if audit:
-        return possibilities, message
-    return message
+    if audit_level == 1:
+        is_nsfw = True if reverse_dict[value[0]] == "explicit" else False
+    elif audit_level == 2:
+        is_nsfw = True if reverse_dict[value[0]] == "questionable" or reverse_dict[value[0]] == "explicit" else False
+    elif audit_level == 3:
+        is_nsfw = True if (
+                reverse_dict[value[0]] == "questionable" or
+                reverse_dict[value[0]] == "explicit" or
+                reverse_dict[value[0]] == "sensitive"
+        ) else False
+    elif audit_level == 100:
+        is_nsfw = True
+    elif audit_level == 0:
+        is_nsfw = False
+
+    audit_info["tags"] = possibilities
+    audit_info["message"] = max_message
+    audit_info["is_nsfw"] = is_nsfw
+
+    return audit_info
+
+
+async def nudenet_audit(
+        img_base64,
+        group_id=None
+):
+    """
+    使用 NudeNet 进行本地审核
+    """
+
+    audit_info = {
+        "is_nsfw": False,
+        "message": "",
+        "tags": "",
+    }
+
+    from .. import nudenet_detector_instance
+
+    try:
+        if isinstance(img_base64, str):
+            img_data = base64.b64decode(img_base64)
+        else:
+            img_data = img_base64
+
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+            tmp_file.write(img_data)
+            tmp_path = tmp_file.name
+    except Exception as e:
+        logger.error(f"NudeNet 图片预处理失败: {e}")
+        audit_info["is_nsfw"] = True
+        audit_info["message"] = "图片处理错误"
+        return audit_info
+
+    try:
+        detections = await asyncio.get_event_loop().run_in_executor(
+            None,
+            nudenet_detector_instance.detect,
+            tmp_path
+        )
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+    found_unsafe = []
+    message = "NudeNet 审核结果:\n"
+
+    for item in detections:
+        label = item['class']
+        score = item['score']
+        if score < 0.5:
+            continue
+
+        box_str = f"{int(score * 100)}%"
+        if label in NUDENET_UNSAFE_LABELS:
+            found_unsafe.append(f"{label} ({box_str})")
+            message += f"[{label}]: {box_str}\n"
+        else:
+            message += f"ℹ️ [{label}]: {box_str}\n"
+
+    is_nsfw = len(found_unsafe) > 0
+
+    if not is_nsfw:
+        message += "图片安全"
+    else:
+        message += "包含敏感内容"
+
+    logger.info(message)
+
+    audit_info["tags"] = detections
+    audit_info["message"] = message
+    audit_info["is_nsfw"] = is_nsfw
+
+    return audit_info
+
+
+async def pic_audit_standalone(
+        img_base64,
+        group_id=None,
+):
+
+    audit_info = {
+        "is_nsfw": False,
+        "message": "",
+        "tags": "",
+    }
+
+    try:
+        if isinstance(img_base64, bytes):
+            byte_img = img_base64
+        else:
+            byte_img = base64.b64decode(img_base64)
+
+        img = Image.open(BytesIO(byte_img)).convert("RGB")
+        img_base64 = await set_res(img)
+    except Exception as e:
+        logger.error(f"图片预处理失败: {e}")
+        audit_info["is_nsfw"] = True
+        audit_info["message"] = "图片预处理失败"
+        return audit_info
+
+    if config.comfyui_dual_audit:
+        logger.info("正在进行双重审核 (WD14 + NudeNet)...")
+
+        task_wd = asyncio.create_task(wd_audit(img_base64, group_id))
+        task_nude = asyncio.create_task(nudenet_audit(img_base64, group_id))
+
+        res_wd, res_nude = await asyncio.gather(task_wd, task_nude)
+
+        is_nsfw = res_wd['is_nsfw'] or res_nude['is_nsfw']
+        logger.info(f"双重审核结果: WD={res_wd}, Nude={res_nude} -> 最终判定: {is_nsfw}")
+
+        msg_wd = res_wd["message"]
+        msg_nude = res_nude["message"]
+        combined_msg = f"=== WD14 审核 ===\n{msg_wd}\n=== NudeNet 审核 ===\n{msg_nude}"
+
+        detections = f"{res_wd['tags']}\n{res_nude['tags']}"
+
+        audit_info["tags"] = detections
+        audit_info["message"] = combined_msg
+        audit_info["is_nsfw"] = is_nsfw
+
+        return audit_info
+
+    if config.comfyui_audit_model == 1:
+        return await wd_audit(img_base64)
+    else:
+        return await nudenet_audit(img_base64)
 
 
 async def send_msg_and_revoke(message: UniMessage | str, reply_to=False, r=None, time=None):
@@ -614,11 +753,10 @@ async def get_backend_status():
 
 async def txt_audit(
         msg,
-        prompt='''
+        prompt=f'''
         接下来请你对一些聊天内容进行审核,
-        如果内容出现政治/暴力/恐怖袭击/血腥/内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 
-        如果没有则输出<no>,
-        请注意， 和这几项(政治/暴力/恐怖袭击/血腥)无关的内容不需要你的判断， 最后， 只输出<yes>或者<no>不需要你输出其他内容
+        如果内容出现中国相关的任何内容/政治/暴力/恐怖袭击/血腥以及{",".join(config.comfyui_ban_words)}相关内容（特别是中国的政治人物/或者和中国相关的政治）则请你输出yes, 
+        如果没有则输出no,最后， 只输出yes或者no即可，不需要你输出其他内容
         '''
 ):
     try:
@@ -639,14 +777,17 @@ async def txt_audit(
                     "model": config.comfyui_openai.get("params")['model'],
                     "messages": system + prompt,
                     "max_tokens": 4000,
+                    "temperature": 0.1,
             }),
             proxy=True
 
         )
 
         res: str = remove_punctuation(response_data['choices'][0]['message']['content'].strip())
-        logger.info(f'进行文字审核审核,输入{msg}, 输出{res}')
-        return res
+
+        clean_resp = clean_llm_response(res)
+        logger.info(f'进行文字审核审核,输入{msg}, 输出{res}, {clean_resp}')
+        return clean_resp
 
     except:
         traceback.print_exc()

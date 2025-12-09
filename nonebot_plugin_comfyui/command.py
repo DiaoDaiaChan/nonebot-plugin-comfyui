@@ -17,7 +17,8 @@ comfyui = on_shell_command(
     parser=comfyui_parser,
     priority=5,
     block=True,
-    handlers=[comfyui_handler]
+    handlers=[comfyui_handler],
+    aliases=set(config.comfyui_trigger_word)
 )
 
 queue = on_shell_command(

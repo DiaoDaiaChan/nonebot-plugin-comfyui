@@ -2,6 +2,7 @@ import json
 import random
 import datetime
 import traceback
+import time
 
 from argparse import Namespace
 from itertools import islice
@@ -23,15 +24,7 @@ cd = {}
 daily_calls = {}
 TEMP_MSG = False
 
-TIPS = [
-    "发送 comfyui帮助  来获取详细的操作",
-    "queue -stop 可以停止当前生成",
-    "插件默认不支持中文提示词",
-    "插件帮助菜单中的注册的命令为可以调用的额外命令",
-    "查看工作流  ,可以查看所有的工作流;查看工作流 flux ,可以筛选带有flux的工作流",
-    "使用-con / -并发 参数进行多后端并发生图"
-    "使用 -r 1216x832 参数, 可用快速设定分辨率"
-]
+TIPS = config.comfyui_tips
 MAX_DAILY_CALLS = config.comfyui_day_limit
 
 
@@ -52,7 +45,6 @@ async def comfyui_generate(event, bot, args, extra_msg=None, day_limit=None):
         raise e
 
     unimsg: UniMessage = comfyui_instance.unimessage
-    unimsg = UniMessage.text(f'队列完成, 耗时:{comfyui_instance.spend_time}秒\n') + unimsg
     comfyui_instance.unimessage = unimsg
 
     await comfyui_instance.send_all_msg()

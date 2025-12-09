@@ -63,7 +63,9 @@ async def danbooru(tag: str, limit):
         for url in img_urls:
             base64_image, bytes_image = await download_img(url)
             if config.comfyui_audit:
-                if await pic_audit_standalone(base64_image, return_bool=True):
+                is_nsfw = await pic_audit_standalone(base64_image)
+                is_nsfw = is_nsfw["is_nsfw"]
+                if is_nsfw:
                     msg += "太涩了"
                 else:
                     msg += UniMessage.image(raw=bytes_image)

@@ -8,9 +8,10 @@ require("nonebot_plugin_alconna")
 require("nonebot_plugin_htmlrender")
 
 from .command import *
+from nonebot import logger
 
-if config.comfyui_audit_local:
-    from nonebot import logger
+
+def load_wd_audit():
     try:
         import pandas as pd
         import numpy as np
@@ -24,16 +25,42 @@ if config.comfyui_audit_local:
     logger.info("正在本地审核加载实例")
     from .backend.wd_audit import WaifuDiffusionInterrogator
 
-    wd_instance = WaifuDiffusionInterrogator(
-        name='WaifuDiffusion',
-        repo_id="SmilingWolf/wd-vit-tagger-v3",
-        revision='v2.0',
-        model_path='model.onnx',
-        tags_path='selected_tags.csv'
-    )
+    wd_instance = WaifuDiffusionInterrogator(**config.comfyui_wd_model)
 
     wd_instance.load()
-    logger.info("模型加载成功")
+    logger.info("WD模型加载成功")
+    return wd_instance
+
+
+def load_nude_audit():
+    try:
+        from nudenet import NudeDetector
+        nudenet_detector_instance = NudeDetector(model_path=config.comfyui_nude_model_path,
+                                                 inference_resolution=640)
+    except ModuleNotFoundError:
+        logger.info("正在安装本地审核需要的依赖")
+        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "nudenet>=3.4.2"])
+        nudenet_detector_instance = NudeDetector(model_path=config.comfyui_nude_model_path,
+                                                 inference_resolution=640)
+
+    logger.info("NudeNet模型加载成功")
+
+    return nudenet_detector_instance
+
+
+if config.comfyui_audit_local:
+    if config.comfyui_audit_model == 1:
+        wd_instance = load_wd_audit()
+
+    if config.comfyui_audit_model == 2:
+        nudenet_detector_instance = load_nude_audit()
+
+    # if config.comfyui_audit_model == 3:
+    #     convnextv_instance = load_cv_audit()
+
+    if config.comfyui_dual_audit:
+        wd_instance = load_wd_audit()
+        nudenet_detector_instance = load_nude_audit()
 
 
 __plugin_meta__ = PluginMetadata(
