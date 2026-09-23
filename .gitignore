@@ -8,3 +8,6 @@ pdm.lock
 dist/
 
 /comfyui_work_flows/output/
+config/
+data/
+

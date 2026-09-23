@@ -1,72 +1,55 @@
-import sys
-import subprocess
-
-from .config import Config, config
+from nonebot import get_driver, logger
 from nonebot.plugin import require, PluginMetadata, inherit_supported_adapters
 
 require("nonebot_plugin_alconna")
 require("nonebot_plugin_htmlrender")
 
-from .command import *
-from nonebot import logger
+from .config import Config, config, init_workflows_dir
+from .commands import (
+    register_workflow_commands,
+    comfyui_cmd,
+    queue_cmd,
+    api_cmd,
+    help_cmd,
+    view_workflow_cmd,
+    backend_status_cmd,
+    today_girl_cmd,
+    dan_cmd,
+    llm_cmd,
+    get_ckpt_cmd,
+    get_loras_cmd,
+    get_task_cmd
+)
+from .utils.update_check import check_package_update
+
+# 启动生命周期钩子
+driver = get_driver()
 
 
-def load_wd_audit():
-    try:
-        import pandas as pd
-        import numpy as np
-        import huggingface_hub
-        import onnxruntime
-    except ModuleNotFoundError:
-        logger.info("正在安装本地审核需要的依赖和模型")
-        subprocess.run([sys.executable, "-m", "pip", "install", "pandas~=2.2.3", "numpy~=2.2.3", "pillow~=11.0.0", "huggingface_hub==0.28.1"])
-        subprocess.run([sys.executable, "-m", "pip", "install", "onnxruntime~=1.20.1"])
+@driver.on_startup
+async def _on_startup() -> None:
+    logger.info("ComfyUI 插件正在初始化...")
+    init_workflows_dir(config.comfyui_workflows_dir)
 
-    logger.info("正在本地审核加载实例")
-    from .backend.wd_audit import WaifuDiffusionInterrogator
-
-    wd_instance = WaifuDiffusionInterrogator(**config.comfyui_wd_model)
-
-    wd_instance.load()
-    logger.info("WD模型加载成功")
-    return wd_instance
+    # 异步检查版本更新
+    update_msg, is_new = await check_package_update()
+    if is_new and update_msg:
+        logger.info(update_msg)
+        try:
+            bot = nonebot.get_bot()
+            for su in config.comfyui_superusers:
+                await bot.send_private_msg(user_id=int(su), message=update_msg)
+        except Exception:
+            pass
 
 
-def load_nude_audit():
-    try:
-        from nudenet import NudeDetector
-        nudenet_detector_instance = NudeDetector(model_path=config.comfyui_nude_model_path,
-                                                 inference_resolution=640)
-    except ModuleNotFoundError:
-        logger.info("正在安装本地审核需要的依赖")
-        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "nudenet>=3.4.2"])
-        nudenet_detector_instance = NudeDetector(model_path=config.comfyui_nude_model_path,
-                                                 inference_resolution=640)
-
-    logger.info("NudeNet模型加载成功")
-
-    return nudenet_detector_instance
-
-
-if config.comfyui_audit_local:
-    if config.comfyui_audit_model == 1:
-        wd_instance = load_wd_audit()
-
-    if config.comfyui_audit_model == 2:
-        nudenet_detector_instance = load_nude_audit()
-
-    # if config.comfyui_audit_model == 3:
-    #     convnextv_instance = load_cv_audit()
-
-    if config.comfyui_dual_audit:
-        wd_instance = load_wd_audit()
-        nudenet_detector_instance = load_nude_audit()
-
+# 在插件加载时同步扫描并注册工作流命令（纯同步，杜绝 asyncio.run）
+register_workflow_commands()
 
 __plugin_meta__ = PluginMetadata(
     name="Comfyui绘图插件",
     description="专门适配Comfyui的绘图插件",
-    usage="基础生图命令: prompt, 发送 comfyui帮助 来获取支持的参数",
+    usage="基础生图命令: prompt，发送 comfyui帮助 来获取支持的参数",
     config=Config,
     type="application",
     supported_adapters=inherit_supported_adapters("nonebot_plugin_alconna"),

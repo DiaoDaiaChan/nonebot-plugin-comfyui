@@ -1,80 +1,72 @@
-import asyncio
-
+from dataclasses import dataclass, field
 from bs4 import BeautifulSoup
-from ..backend import RespMsg
-from ..backend.utils import http_request, pic_audit_standalone, download_img, txt_audit
 from nonebot_plugin_alconna import UniMessage
-from ..exceptions import ComfyuiExceptions
+
 from ..config import config
+from ..exceptions import TextContentNotSafeError
+from ..services.comfy_client import comfy_client
+from ..services.audit import audit_image, text_audit
 
 
-async def danbooru(tag: str, limit):
+@dataclass
+class DanbooruItem:
+    resp_img: UniMessage = field(default_factory=UniMessage)
 
-    resp_list = []
+
+async def danbooru(tag: str, limit: int = 3) -> list[DanbooruItem]:
+    resp_list: list[DanbooruItem] = []
     db_base_url = "https://danbooru.donmai.us"
+    lim = limit if isinstance(limit, int) else 3
 
-    if isinstance(limit, int):
-        limit = limit
-
-    else:
-        limit = 3
-
-    msg = tag
-    resp = await http_request(
+    resp = await comfy_client.request(
         "GET",
-        f"{db_base_url}/autocomplete?search%5Bquery%5D={msg}&search%5Btype%5D=tag_query&version=1&limit={limit}",
-        proxy=True,
-        text=True
+        f"{db_base_url}/autocomplete?search%5Bquery%5D={tag}&search%5Btype%5D=tag_query&version=1&limit={lim}",
+        as_text=True,
+        proxy=True
     )
 
     soup = BeautifulSoup(resp, 'html.parser')
     tags = soup.find_all('li', class_='ui-menu-item')
 
-    data_values = []
     raw_data_values = []
-    for tag in tags:
-        data_value = tag['data-autocomplete-value']
-        raw_data_values.append(data_value)
-        data_value_space = data_value.replace('_', ' ')
-        data_values.append(data_value_space)
+    for t in tags:
+        v = t.get('data-autocomplete-value')
+        if v:
+            raw_data_values.append(v)
 
-    resp = await txt_audit(str(data_values))
-    if 'yes' in resp:
-        raise ComfyuiExceptions.TextContentNotSafeError
+    # 审核词条
+    audit_res = await text_audit(str(raw_data_values))
+    if 'yes' in audit_res:
+        raise TextContentNotSafeError("Danbooru 词条内容违规")
 
-    build_msg = []
+    for t_val in raw_data_values:
+        item = DanbooruItem()
+        item.resp_img += f"({t_val}:1)\n"
 
-    for tag in raw_data_values:
-        build_msg.append(f"({tag}:1)")
-        # tag = tag.replace(' ', '_').replace('(', '%28').replace(')', '%29')
+        try:
+            image_resp = await comfy_client.request(
+                "GET",
+                f"{db_base_url}/posts?tags={t_val}",
+                as_text=True,
+                proxy=True
+            )
+            sub_soup = BeautifulSoup(image_resp, 'html.parser')
+            img_urls = [img['src'] for img in sub_soup.find_all('img') if img.get('src', '').startswith('http')][:2]
 
-        resp = RespMsg()
-
-        image_resp = await http_request(
-            "GET",
-            f"{db_base_url}/posts?tags={tag}",
-            text=True,
-            proxy=True
-        )
-
-        soup = BeautifulSoup(image_resp, 'html.parser')
-        img_urls = [img['src'] for img in soup.find_all('img') if img['src'].startswith('http')][:2]
-        msg = ''
-        for url in img_urls:
-            base64_image, bytes_image = await download_img(url)
-            if config.comfyui_audit:
-                is_nsfw = await pic_audit_standalone(base64_image)
-                is_nsfw = is_nsfw["is_nsfw"]
-                if is_nsfw:
-                    msg += "太涩了"
+            for u in img_urls:
+                clean_url = u.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
+                byte_img = await comfy_client.request("GET", clean_url, as_json=False)
+                if config.comfyui_audit:
+                    a_res = await audit_image(byte_img)
+                    if a_res.get("is_nsfw"):
+                        item.resp_img += "太涩了\n"
+                    else:
+                        item.resp_img += UniMessage.image(raw=byte_img)
                 else:
-                    msg += UniMessage.image(raw=bytes_image)
-            else:
-                msg += UniMessage.image(raw=bytes_image)
+                    item.resp_img += UniMessage.image(raw=byte_img)
+        except Exception:
+            pass
 
-        resp.resp_img += f"({tag}:1)\n"
-        resp.resp_img += msg
-
-        resp_list.append(resp)
+        resp_list.append(item)
 
     return resp_list
