@@ -1,0 +1,30 @@
+[project]
+name = "comfyui-reflex"
+version = "0.1.0"
+description = "A lightweight, pure Python standard library designed for manipulating, inspecting, and rewriting ComfyUI API workflows."
+authors = [
+    {name = "nonebot-plugin-comfyui authors"}
+]
+dependencies = []
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+keywords = ["comfyui", "workflow", "ai", "stable-diffusion", "graph", "api"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm.build]
+includes = ["comfyui_reflex"]
+package-dir = "../../"

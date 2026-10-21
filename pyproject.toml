@@ -33,3 +33,9 @@ build-backend = "pdm.backend"
 
 [tool.pdm]
 distribution = true
+
+[tool.pdm.build]
+includes = [
+    "nonebot_plugin_comfyui",
+    "comfyui_reflex"
+]

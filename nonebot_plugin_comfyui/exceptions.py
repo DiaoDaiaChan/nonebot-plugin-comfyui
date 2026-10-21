@@ -2,7 +2,18 @@
 nonebot-plugin-comfyui 异常定义体系
 所有异常均继承自统一基类 ComfyuiExceptions (即 ComfyUIPluginError)，
 确保支持统配捕获，并保留命名空间向后兼容。
+针对 Reflex 核心异常，多继承自独立库 comfyui_reflex 的对应异常类。
 """
+
+from comfyui_reflex.exceptions import (
+    ReflexError,
+    ReflexNotFoundError,
+    ReflexConfigError,
+    ReflexArgumentError,
+    NodeNotFoundError,
+    WorkflowFormatError
+)
+
 
 class ComfyuiExceptions(Exception):
     """插件基础异常类"""
@@ -27,7 +38,7 @@ class PostingFailedError(ComfyuiExceptions):
         super().__init__(message)
 
 
-class ArgsError(ComfyuiExceptions):
+class ArgsError(ComfyuiExceptions, ReflexArgumentError):
     def __init__(self, message: str = "参数错误"):
         super().__init__(message)
 
@@ -37,7 +48,7 @@ class APIJsonError(ComfyuiExceptions):
         super().__init__(message)
 
 
-class ReflexJsonError(ComfyuiExceptions):
+class ReflexJsonError(ComfyuiExceptions, ReflexConfigError):
     def __init__(self, message: str = "Reflex json错误"):
         super().__init__(message)
 
@@ -48,52 +59,52 @@ class InputFileNotFoundError(ComfyuiExceptions):
 
 
 class ReflexJsonOutputError(ReflexJsonError):
-    def __init__(self, message: str = "Reflex json输出设置错误"):
+    def __init__(self, message: str = "Reflex json没有找到输出节点或者格式不正确"):
         super().__init__(message)
 
 
-class ReflexJsonNotFoundError(ReflexJsonError):
+class ReflexJsonNotFoundError(ReflexJsonError, ReflexNotFoundError):
     def __init__(self, message: str = "未找到工作流对应的Reflex json!"):
         super().__init__(message)
 
 
 class ComfyuiBackendConnectionError(ComfyuiExceptions):
-    def __init__(self, message: str = "连接到comfyui后端出错"):
+    def __init__(self, message: str = "ComfyUI后端连接错误"):
         super().__init__(message)
 
 
 class GetResultError(ComfyuiExceptions):
-    def __init__(self, message: str = "获取生成结果时出现错误"):
+    def __init__(self, message: str = "获取ComfyUI生成结果失败"):
         super().__init__(message)
 
 
 class AuditError(ComfyuiExceptions):
-    def __init__(self, message: str = "图片审核失败"):
+    def __init__(self, message: str = "审核失败"):
         super().__init__(message)
 
 
 class TaskNotFoundError(ComfyuiExceptions):
-    def __init__(self, message: str = "未找到提供的任务ID对应的任务"):
+    def __init__(self, message: str = "未找到任务"):
         super().__init__(message)
 
 
 class InterruptError(ComfyuiExceptions):
-    def __init__(self, message: str = "任务已被终止"):
+    def __init__(self, message: str = "中断失败"):
         super().__init__(message)
 
 
 class TaskError(ComfyuiExceptions):
-    def __init__(self, message: str = "任务出错"):
+    def __init__(self, message: str = "任务失败"):
         super().__init__(message)
 
 
 class WorkflowNotAvailableInSelectedBackend(ComfyuiExceptions):
-    def __init__(self, message: str = "所选的工作流不支持在所选后端上执行"):
+    def __init__(self, message: str = "工作流在选择的后端中不可用"):
         super().__init__(message)
 
 
 class NoAvailableBackendForSelectedWorkflow(ComfyuiExceptions):
-    def __init__(self, message: str = "目前没有可运行所选的工作流的后端"):
+    def __init__(self, message: str = "当前工作流没有可用后端"):
         super().__init__(message)
 
 
@@ -150,3 +161,37 @@ ComfyuiExceptions.SendImageToBotException = SendImageToBotException
 ComfyuiExceptions.WorkflowAdminLimitation = WorkflowAdminLimitation
 ComfyuiExceptions.WorkflowGroupLimitation = WorkflowGroupLimitation
 ComfyuiExceptions.ComfyuiNotAvaInCurrentGroup = ComfyuiNotAvaInCurrentGroup
+
+__all__ = [
+    "ComfyuiExceptions",
+    "ComfyUIPluginError",
+    "NoAvailableBackendError",
+    "PostingFailedError",
+    "ArgsError",
+    "APIJsonError",
+    "ReflexJsonError",
+    "InputFileNotFoundError",
+    "ReflexJsonOutputError",
+    "ReflexJsonNotFoundError",
+    "ComfyuiBackendConnectionError",
+    "GetResultError",
+    "AuditError",
+    "TaskNotFoundError",
+    "InterruptError",
+    "TaskError",
+    "WorkflowNotAvailableInSelectedBackend",
+    "NoAvailableBackendForSelectedWorkflow",
+    "TextContentNotSafeError",
+    "ReachWorkFlowExecLimitations",
+    "SendImageToBotException",
+    "WorkflowAdminLimitation",
+    "WorkflowGroupLimitation",
+    "ComfyuiNotAvaInCurrentGroup",
+    # comfyui_reflex re-exports
+    "ReflexError",
+    "ReflexNotFoundError",
+    "ReflexConfigError",
+    "ReflexArgumentError",
+    "NodeNotFoundError",
+    "WorkflowFormatError",
+]
